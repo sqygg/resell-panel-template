@@ -34,6 +34,9 @@ class Settings:
     DISCORD_OWNER_ID: str = os.getenv("DISCORD_OWNER_ID", "")
 
     # ---------- Branding ----------
+    # Origins allowed to embed the panel in an iframe (CSP frame-ancestors).
+    # Set to your SellAuth store, e.g. "https://astr0.mysellauth.com"
+    FRAME_ANCESTORS: str = os.getenv("FRAME_ANCESTORS", "'self'")
     BRAND_NAME: str = os.getenv("BRAND_NAME", "RESELLER")
     BRAND_TAGLINE: str = os.getenv("BRAND_TAGLINE", "Your reliable partner in gaming solutions.")
     # Public base URL for referral links (e.g. https://panel.yourdomain.com)

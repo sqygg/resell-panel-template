@@ -13,11 +13,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
-        response.headers["X-Frame-Options"] = "DENY"
+        # Allow embedding only from the SellAuth store (iframe on /blog).
+        # frame-ancestors supersedes X-Frame-Options; we omit X-Frame-Options=DENY
+        # so the panel can be framed by the approved origin.
+        frame_ancestors = settings.FRAME_ANCESTORS or "'self'"
+        response.headers["Content-Security-Policy"] = (
+            f"default-src 'self'; style-src 'self' 'unsafe-inline'; "
+            f"script-src 'self' 'unsafe-inline'; frame-ancestors {frame_ancestors}"
+        )
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
-        response.headers["Content-Security-Policy"] = "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
         response.headers["Cache-Control"] = "no-store, max-age=0"
         # Strip server header if present
         if "Server" in response.headers:
