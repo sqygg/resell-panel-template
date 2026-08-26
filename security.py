@@ -18,8 +18,12 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # so the panel can be framed by the approved origin.
         frame_ancestors = settings.FRAME_ANCESTORS or "'self'"
         response.headers["Content-Security-Policy"] = (
-            f"default-src 'self'; style-src 'self' 'unsafe-inline'; "
-            f"script-src 'self' 'unsafe-inline'; frame-ancestors {frame_ancestors}"
+            f"default-src 'self'; "
+            f"style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+            f"font-src 'self' https://fonts.gstatic.com; "
+            f"script-src 'self' 'unsafe-inline'; "
+            f"img-src 'self' data: https:; "
+            f"frame-ancestors {frame_ancestors}"
         )
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
