@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Reseller Panel — Complete Setup Guide</title>
+<style>
+  @page { margin: 2cm; size: A4; }
+  body { font-family: 'DejaVu Sans', sans-serif; color: #1a1a1a; line-height: 1.6; font-size: 11pt; }
+  h1 { color: #6b46f0; font-size: 26pt; margin-bottom: 4pt; border-bottom: 3px solid #4f7cff; padding-bottom: 8pt; }
+  h2 { color: #4f7cff; font-size: 17pt; margin-top: 24pt; border-bottom: 1px solid #ccc; padding-bottom: 4pt; }
+  h3 { color: #333; font-size: 13pt; margin-top: 16pt; }
+  code { background: #f0f0f5; padding: 1px 5px; border-radius: 3px; font-family: 'DejaVu Sans Mono', monospace; font-size: 9.5pt; color: #c2410c; }
+  pre { background: #f5f5fa; border: 1px solid #ddd; border-left: 4px solid #4f7cff; padding: 10px 14px; border-radius: 4px; font-family: 'DejaVu Sans Mono', monospace; font-size: 9pt; overflow-x: auto; white-space: pre-wrap; }
+  table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
+  th, td { border: 1px solid #ccc; padding: 6pt 9pt; text-align: left; font-size: 10pt; }
+  th { background: #4f7cff; color: #fff; }
+  tr:nth-child(even) td { background: #f7f7fc; }
+  .note { background: #fff7ed; border: 1px solid #fdba74; border-left: 4px solid #f97316; padding: 10px 14px; border-radius: 4px; margin: 10pt 0; }
+  .tip { background: #ecfdf5; border: 1px solid #6ee7b7; border-left: 4px solid #22c55e; padding: 10px 14px; border-radius: 4px; margin: 10pt 0; }
+  .warn { background: #fef2f2; border: 1px solid #fca5a5; border-left: 4px solid #ef4444; padding: 10px 14px; border-radius: 4px; margin: 10pt 0; }
+  .toc { background: #fafafa; border: 1px solid #ddd; border-radius: 6px; padding: 14pt 18pt; margin-bottom: 20pt; }
+  .toc a { color: #4f7cff; text-decoration: none; }
+  ul { margin: 6pt 0; }
+  li { margin: 3pt 0; }
+  .center { text-align: center; }
+  .brand { font-size: 14pt; color: #6b46f0; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Reseller Panel</h1>
+<p class="brand">Complete Setup Guide — from zero to a fully operational reseller panel</p>
+<p>This guide walks you through every step, from getting your credentials to onboarding your first reseller and going live. No prior experience needed — every step is explained as if to a 10-year-old.</p>
+
+<div class="toc">
+<strong>Table of Contents</strong>
+<ol>
+  <li><a href="#what">What This Does</a></li>
+  <li><a href="#prereq">Prerequisites</a></li>
+  <li><a href="#creds">Get Your SellAuth Credentials</a></li>
+  <li><a href="#setup">Set Up the Project</a></li>
+  <li><a href="#env">Configure the .env File</a></li>
+  <li><a href="#run">Start the Server</a></li>
+  <li><a href="#admin">Access the Admin Panel</a></li>
+  <li><a href="#reseller">Add Your First Reseller</a></li>
+  <li><a href="#onboard">Onboard a Reseller (What They Get)</a></li>
+  <li><a href="#api">How Resellers Use the API</a></li>
+  <li><a href="#storefront">The Reseller Storefront</a></li>
+  <li><a href="#referrals">Referral System</a></li>
+  <li><a href="#applications">Reseller Applications</a></li>
+  <li><a href="#daily">Day-to-Day Operations</a></li>
+  <li><a href="#security">Security Features</a></li>
+  <li><a href="#branding">Customizing Branding &amp; Colors</a></li>
+  <li><a href="#troubleshoot">Troubleshooting</a></li>
+  <li><a href="#api-ref">Full API Reference</a></li>
+</ol>
+</div>
+
+<h2 id="what">1. What This Does</h2>
+<pre>
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│  Your SellAuth   │────▶│  Reseller Panel   │────▶│  Reseller A      │
+│  Shop (products) │     │  (this project)   │     │  (gets 25% off)  │
+│                  │     │                   │────▶│  Reseller B      │
+│  price: $10.00   │     │  applies discount │     │  (gets 15% off)  │
+│  stock: 50       │     │  per reseller     │────▶│  Reseller C      │
+└─────────────────┘     └──────────────────┘     │  (gets 0% off)   │
+                                                  └─────────────────┘
+</pre>
+
+<p><strong>What it does:</strong></p>
+<ul>
+  <li>Pulls your product catalog + stock from your SellAuth shop automatically.</li>
+  <li>Each reseller gets a <strong>unique API key</strong>.</li>
+  <li>Each reseller has a <strong>custom discount percentage</strong> you set.</li>
+  <li>Resellers query your panel and see products at <strong>their discounted prices</strong>.</li>
+  <li>Resellers NEVER see your SellAuth directly — they only talk to your panel.</li>
+  <li>Resellers get a <strong>storefront</strong> (web dashboard) to browse, order, and track history.</li>
+  <li><strong>Prepaid balance</strong> system — resellers deposit funds, orders deduct automatically.</li>
+  <li><strong>Referral system</strong> — resellers refer others and earn a % commission.</li>
+  <li><strong>Public application form</strong> — new resellers apply, you approve/reject from the admin panel.</li>
+  <li><strong>Security hardening</strong> — hashed API keys, rate limiting, audit logs.</li>
+</ul>
+
+<h2 id="prereq">2. Prerequisites</h2>
+<table>
+  <tr><th>Requirement</th><th>How to check</th><th>Minimum</th></tr>
+  <tr><td>Linux server</td><td><code>uname -a</code></td><td>Any modern distro (Debian/Ubuntu recommended)</td></tr>
+  <tr><td>Python</td><td><code>python3 --version</code></td><td>3.11 or higher</td></tr>
+  <tr><td>Docker + Compose</td><td><code>docker --version</code></td><td>Optional (for Docker deployment)</td></tr>
+  <tr><td>Free port</td><td><code>ss -tlnp | grep 8000</code></td><td>Port 8000 must be free</td></tr>
+</table>
+<p>On your local machine you just need a web browser.</p>
+
+<h2 id="creds">3. Get Your SellAuth Credentials</h2>
+<p>You need <strong>two values</strong> from your SellAuth dashboard.</p>
+
+<h3>3.1 — Get your API Key</h3>
+<ol>
+  <li>Go to <strong>https://dash.sellauth.com</strong> and log in.</li>
+  <li>In the left sidebar, click <strong>Account</strong> → <strong>Developers</strong> (or <strong>API</strong>).</li>
+  <li>Copy your API key — it looks like <code>sa_live_xxxxxxxxxxxxxxxx</code>.</li>
+</ol>
+<div class="warn"><strong>Save this key immediately.</strong> You may not be able to see it again. Never share it or put it in a client app — it stays server-side only.</div>
+
+<h3>3.2 — Get your Shop ID</h3>
+<ol>
+  <li>Click <strong>Shops</strong> in the sidebar, then click your shop.</li>
+  <li>Look at the URL: <code>https://dash.sellauth.com/shops/<strong>12345</strong></code> — the number is your Shop ID.</li>
+</ol>
+
+<h2 id="setup">4. Set Up the Project</h2>
+<pre>
+cd ~/projects/reseller-panel
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+</pre>
+
+<h3>Project layout</h3>
+<table>
+  <tr><th>File / folder</th><th>Purpose</th></tr>
+  <tr><td><code>main.py</code></td><td>FastAPI app entry point</td></tr>
+  <tr><td><code>config.py</code></td><td>Reads your .env settings</td></tr>
+  <tr><td><code>database.py</code></td><td>SQLite storage (resellers, orders, balances, referrals)</td></tr>
+  <tr><td><code>security.py</code></td><td>Rate limiting, security headers, request size limits</td></tr>
+  <tr><td><code>routers/storefront.py</code></td><td>Reseller-facing web storefront</td></tr>
+  <tr><td><code>routers/admin_ui.py</code></td><td>Admin web dashboard</td></tr>
+  <tr><td><code>routers/api_webhook.py</code></td><td>Reseller API (query products/stock)</td></tr>
+  <tr><td><code>routers/api_admin.py</code></td><td>Admin REST API</td></tr>
+  <tr><td><code>services/sellauth.py</code></td><td>SellAuth API client</td></tr>
+  <tr><td><code>templates/</code></td><td>HTML templates (admin + storefront)</td></tr>
+  <tr><td><code>discord_bot.py</code></td><td>Optional Discord management bot</td></tr>
+</table>
+
+<h2 id="env">5. Configure the .env File</h2>
+<pre>
+cp .env.example .env
+nano .env
+</pre>
+<p>Fill in at minimum:</p>
+<table>
+  <tr><th>Key</th><th>What to put</th></tr>
+  <tr><td><code>SELLAUTH_API_KEY</code></td><td>Your key from step 3.1</td></tr>
+  <tr><td><code>SELLAUTH_SHOP_ID</code></td><td>Your shop ID from step 3.2</td></tr>
+  <tr><td><code>ADMIN_PASSWORD</code></td><td>A strong password (NOT "admin")</td></tr>
+  <tr><td><code>BRAND_NAME</code></td><td>Your brand, e.g. <code>DTF MARKET</code></td></tr>
+</table>
+<div class="note"><strong>Do not</strong> put quotes or spaces around the <code>=</code> sign.</div>
+
+<h2 id="run">6. Start the Server</h2>
+<h3>Option A — Direct (testing)</h3>
+<pre>
+source .venv/bin/activate
+uvicorn main:app --host 0.0.0.0 --port 8000
+</pre>
+<h3>Option B — Docker (production)</h3>
+<pre>
+docker compose up -d
+docker compose logs -f
+</pre>
+
+<h2 id="admin">7. Access the Admin Panel</h2>
+<p>Open <code>http://YOUR_SERVER_IP:8000</code> and log in with your <code>ADMIN_PASSWORD</code>.</p>
+<p>The admin dashboard shows:</p>
+<ul>
+  <li><strong>Active Resellers</strong> — how many you have.</li>
+  <li><strong>Total Products</strong> — pulled from SellAuth.</li>
+  <li><strong>Total Stock</strong> — sum of all stock.</li>
+</ul>
+<p>Top navigation: <strong>Dashboard / Resellers / Stock / Orders / Applications</strong>.</p>
+
+<h2 id="reseller">8. Add Your First Reseller</h2>
+<ol>
+  <li>Click <strong>Resellers</strong> → <strong>+ Add Reseller</strong>.</li>
+  <li>Enter name and discount %.</li>
+  <li>Click <strong>Create</strong> — a popup shows the API key <strong>once</strong>.</li>
+</ol>
+<div class="warn"><strong>Copy the API key now.</strong> It is shown only once. You can regenerate it (invalidates the old one) but can never view it again — keys are stored hashed.</div>
+<p><strong>How discount works:</strong> product costs $40 retail, reseller discount 25% → reseller sees $30. The <code>original_price</code> is also shown so they know the retail.</p>
+
+<h2 id="onboard">9. Onboard a Reseller</h2>
+<p>Give a new reseller three things:</p>
+<pre>
+📡 Storefront:  http://YOUR_SERVER_IP:8000/store/login
+🔑 Your Key:    rs_xxxxxxxxxxxxxxxx
+💰 Discount:    25% off all products
+</pre>
+<p>They can log into the storefront with their API key, OR use the raw API (below).</p>
+
+<h2 id="api">10. How Resellers Use the API</h2>
+<p>Resellers only need one URL. The API key goes in the path.</p>
+<pre>
+# Health check (verify the key works)
+GET /api/webhook/{api_key}/health
+
+# Get all products with their discounted prices
+GET /api/webhook/{api_key}
+</pre>
+<p>Response includes <code>price</code> (discounted) and <code>original_price</code> (retail).</p>
+<table>
+  <tr><th>Query param</th><th>Example</th><th>Description</th></tr>
+  <tr><td><code>page</code></td><td><code>?page=2</code></td><td>Page number (default 1)</td></tr>
+  <tr><td><code>per_page</code></td><td><code>?per_page=100</code></td><td>Products per page (max 200)</td></tr>
+  <tr><td><code>type</code></td><td><code>?type=service</code></td><td>Filter by <code>service</code> or <code>file</code></td></tr>
+</table>
+
+<h2 id="storefront">11. The Reseller Storefront</h2>
+<p>Resellers get a full web dashboard at <code>/store</code>. After logging in with their API key, they see:</p>
+<ul>
+  <li><strong>Dashboard</strong> — "Welcome back" summary: balance, discount, total orders, referral earnings, recent orders.</li>
+  <li><strong>Products</strong> — browse the catalog at their discounted prices, place orders.</li>
+  <li><strong>Orders</strong> — full order history.</li>
+  <li><strong>Balance</strong> — current balance + transaction history.</li>
+  <li><strong>Referrals</strong> — their referral code, link, and earnings.</li>
+</ul>
+<p>Orders deduct from the reseller's prepaid balance. When a reseller places an order, the panel creates a SellAuth checkout link they can send to their customer — SellAuth auto-delivers after payment.</p>
+
+<h2 id="referrals">12. Referral System</h2>
+<p>Every reseller automatically gets a unique <strong>referral code</strong> (e.g. <code>XK4F9T2Q</code>).</p>
+<ul>
+  <li>Resellers share their link: <code>http://YOUR_SERVER_IP:8000/store/apply?ref=XK4F9T2Q</code></li>
+  <li>When a new reseller applies with that code and is approved, they're linked.</li>
+  <li>The referrer earns <code>REFERRAL_COMMISSION_PERCENT</code> (default 5%) of every order the referred reseller places.</li>
+  <li>Commission is credited automatically to the referrer's balance.</li>
+</ul>
+
+<h2 id="applications">13. Reseller Applications</h2>
+<p>The public form at <code>/store/apply</code> collects: email, Discord, website, Discord server, products, and optional referral code.</p>
+<p>In the admin panel, <strong>Applications</strong> shows all pending applications:</p>
+<ul>
+  <li><strong>Approve</strong> → enter a name + discount % → creates the reseller automatically (and links any referral).</li>
+  <li><strong>Reject</strong> → marks it rejected.</li>
+</ul>
+<div class="tip">The default discount for approved applications is <code>DEFAULT_APPLICATION_DISCOUNT</code> (default 30%).</div>
+
+<h2 id="daily">14. Day-to-Day Operations</h2>
+<ul>
+  <li><strong>Add balance to a reseller</strong> — Resellers → Edit → "Add Funds".</li>
+  <li><strong>Change a discount</strong> — Resellers → Edit → Discount %.</li>
+  <li><strong>Suspend a reseller</strong> — Resellers → Edit → Status = Inactive.</li>
+  <li><strong>Rotate a key</strong> — Resellers → 🔄 (old key stops working immediately).</li>
+  <li><strong>View all orders</strong> — Orders tab shows every reseller's orders.</li>
+  <li><strong>Check stock</strong> — Stock tab reflects live SellAuth inventory.</li>
+</ul>
+
+<h2 id="security">15. Security Features</h2>
+<table>
+  <tr><th>Feature</th><th>What it does</th></tr>
+  <tr><td>Hashed API keys</td><td>Keys stored as SHA-256 hashes — a DB leak never reveals keys</td></tr>
+  <tr><td>Rate limiting</td><td>60 req/min global, 30/min webhook, 5/min login per IP</td></tr>
+  <tr><td>Brute-force lockout</td><td>Admin login locks after 5 failures / 15 min</td></tr>
+  <tr><td>Security headers</td><td>CSP, X-Frame-Options, nosniff, etc.</td></tr>
+  <tr><td>Request size limit</td><td>Rejects bodies over 64 KB</td></tr>
+  <tr><td>Audit log</td><td>Every admin action is logged with IP</td></tr>
+  <tr><td>Constant-time compare</td><td>Password/key checks use hmac.compare_digest</td></tr>
+</table>
+
+<h2 id="branding">16. Customizing Branding &amp; Colors</h2>
+<p>The UI ships with the <strong>DTF Market</strong> palette, defined as CSS variables in <code>templates/store_base.html</code> and <code>templates/base.html</code>.</p>
+<table>
+  <tr><th>Variable</th><th>Default</th><th>Use</th></tr>
+  <tr><td><code>--bg</code></td><td><code>#0b1018</code></td><td>Page background</td></tr>
+  <tr><td><code>--bg-nav</code></td><td><code>#000000</code></td><td>Navbar</td></tr>
+  <tr><td><code>--bg-input</code></td><td><code>#0e141e</code></td><td>Inputs / wells</td></tr>
+  <tr><td><code>--bg-card</code></td><td><code>#121a26</code></td><td>Cards and panels</td></tr>
+  <tr><td><code>--bg-hover</code></td><td><code>#16202e</code></td><td>Hover / raised</td></tr>
+  <tr><td><code>--brand-gradient</code></td><td><code>linear-gradient(135deg, #4f7cff, #7c5cff)</code></td><td>Buy buttons, active tabs</td></tr>
+  <tr><td><code>--accent</code></td><td><code>#7c5cff</code></td><td>Primary accent (purple)</td></tr>
+  <tr><td><code>--accent-light</code></td><td><code>#a78bfa</code></td><td>Links and details</td></tr>
+</table>
+<p>Status colors: <code>#22c55e</code> Undetected · <code>#fbbf24</code> Updating · <code>#3b82f6</code> Testing · <code>#ef4444</code> Risky · <code>#f97316</code> Frozen.</p>
+<p>Set <code>BRAND_NAME</code> in <code>.env</code> to change the name shown in the header and login page.</p>
+
+<h2 id="troubleshoot">17. Troubleshooting</h2>
+<table>
+  <tr><th>Problem</th><th>Fix</th></tr>
+  <tr><td>"No products loaded"</td><td>Check <code>SELLAUTH_API_KEY</code> / <code>SELLAUTH_SHOP_ID</code> in .env. Test with curl (step 3).</td></tr>
+  <tr><td>SellAuth returns 401</td><td>Your API key is stale/revoked — regenerate in dash.sellauth.com.</td></tr>
+  <tr><td>Can't log into admin</td><td>Too many attempts → wait 15 min. Or check <code>ADMIN_PASSWORD</code>.</td></tr>
+  <tr><td>Port 8000 in use</td><td>Change <code>PORT</code> in .env or remap in docker-compose.yml.</td></tr>
+  <tr><td>Reseller can't log into store</td><td>Verify they're using the full API key (starts with <code>rs_</code>).</td></tr>
+  <tr><td>Discord bot not connecting</td><td><code>DISCORD_BOT_TOKEN</code> empty → bot disabled (expected). Add token to enable.</td></tr>
+</table>
+
+<h2 id="api-ref">18. Full API Reference</h2>
+<h3>Reseller endpoints (<code>/api/webhook/{api_key}</code>)</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+  <tr><td>GET</td><td><code>/health</code></td><td>Verify key + get discount info</td></tr>
+  <tr><td>GET</td><td><code>/</code></td><td>List products with discounted prices</td></tr>
+</table>
+<h3>Admin endpoints (<code>/api/admin/</code>)</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Purpose</th></tr>
+  <tr><td>GET</td><td><code>/api/admin/health</code></td><td>Admin API health</td></tr>
+  <tr><td>GET</td><td><code>/api/admin/resellers</code></td><td>List resellers</td></tr>
+  <tr><td>POST</td><td><code>/api/admin/resellers</code></td><td>Create reseller</td></tr>
+  <tr><td>PUT</td><td><code>/api/admin/resellers/{id}</code></td><td>Update reseller</td></tr>
+  <tr><td>DELETE</td><td><code>/api/admin/resellers/{id}</code></td><td>Delete reseller</td></tr>
+</table>
+
+<div class="tip center"><strong>Done!</strong> Your reseller panel is fully operational. 🎉</div>
+
+</body>
+</html>

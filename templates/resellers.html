@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
+        <div>
+            <h1>Resellers</h1>
+            <p>Manage your resellers, discounts, and balances.</p>
+        </div>
+        <a href="#add-modal" class="btn btn-primary">+ Add Reseller</a>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Name</th><th>Discount</th><th>Key Prefix</th><th>Referral</th><th>Requests</th><th>Status</th><th>Actions</th></tr></thead>
+            <tbody>
+            {% for r in resellers %}
+            <tr>
+                <td>{{ r.name | e }}</td>
+                <td><span class="badge badge-discount">{{ r.discount_percent }}%</span></td>
+                <td><code style="font-size:0.75rem;">{{ r.api_key_prefix }}...</code></td>
+                <td>{% if r.referral_code %}<code>{{ r.referral_code }}</code>{% else %}<span class="dim">—</span>{% endif %}</td>
+                <td>{{ r.request_count or 0 }}</td>
+                <td>{% if r.active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+                <td>
+                    <div class="actions">
+                        <a href="#edit-modal-{{ r.id }}" class="btn btn-ghost btn-sm">Edit</a>
+                        <form method="post" action="/resellers/{{ r.id }}/regenerate" style="display:inline;" onsubmit="return confirm('Regenerate key for {{ r.name | e }}? Old key stops immediately.')">
+                            <button type="submit" class="btn btn-ghost btn-sm">🔄</button>
+                        </form>
+                        <a href="/resellers/{{ r.id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('Delete {{ r.name | e }}? Permanent.')">×</a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+            {% if not resellers %}
+            <tr><td colspan="7" class="empty">No resellers yet</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add Modal -->
+<div id="add-modal" class="modal">
+    <div class="modal-content">
+        <h3 style="margin-bottom:1.25rem;">Add Reseller</h3>
+        <form method="post" action="/resellers/create">
+            <div class="form-group"><label>Name</label><input name="name" required placeholder="Reseller name" maxlength="100" autocomplete="off"></div>
+            <div class="form-group"><label>Discount %</label><input name="discount_percent" type="number" step="0.5" min="0" max="100" value="0" required></div>
+            <div class="form-group"><label>Webhook URL (optional)</label><input name="webhook_url" placeholder="https://..." maxlength="500" autocomplete="off"></div>
+            <div class="form-group"><label>Referred by (code, optional)</label><input name="referred_by_code" placeholder="Referral code" maxlength="50" autocomplete="off"></div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.25rem;">
+                <a href="#" class="btn btn-ghost btn-sm">Cancel</a>
+                <button type="submit" class="btn btn-primary btn-sm">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit Modals -->
+{% for r in resellers %}
+<div id="edit-modal-{{ r.id }}" class="modal">
+    <div class="modal-content">
+        <h3 style="margin-bottom:1.25rem;">Edit {{ r.name | e }}</h3>
+        <form method="post" action="/resellers/{{ r.id }}/update">
+            <div class="form-group"><label>Name</label><input name="name" value="{{ r.name | e }}" required maxlength="100" autocomplete="off"></div>
+            <div class="form-group"><label>Discount %</label><input name="discount_percent" type="number" step="0.5" min="0" max="100" value="{{ r.discount_percent }}" required></div>
+            <div class="form-group"><label>Webhook URL</label><input name="webhook_url" value="{{ r.webhook_url or '' | e }}" maxlength="500" autocomplete="off"></div>
+            <div class="form-group">
+                <label>Status</label>
+                <select name="active">
+                    <option value="1" {% if r.active %}selected{% endif %}>Active</option>
+                    <option value="0" {% if not r.active %}selected{% endif %}>Inactive</option>
+                </select>
+            </div>
+            <p class="muted" style="font-size:0.8rem;margin-top:0.5rem;">
+                Key prefix: <code>{{ r.api_key_prefix }}...</code> — cannot be viewed, only regenerated.
+            </p>
+            <div style="padding:0.75rem;background:var(--bg-input);border-radius:10px;margin-top:0.75rem;">
+                <strong style="font-size:0.85rem;">Balance: <span class="green">${{ "%.2f"|format(r.balance) }}</span></strong>
+                <form method="post" action="/admin/resellers/{{ r.id }}/add-balance" style="margin-top:0.5rem;display:flex;gap:0.5rem;">
+                    <input type="number" name="amount" step="0.01" min="0.01" placeholder="Amount" required style="flex:1;padding:0.45rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.85rem;">
+                    <button type="submit" class="btn btn-primary btn-sm">Add Funds</button>
+                </form>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;margin-top:1.25rem;">
+                <a href="#" class="btn btn-ghost btn-sm">Cancel</a>
+                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

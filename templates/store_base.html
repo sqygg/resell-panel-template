@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ brand_name }} — Reseller Panel</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b1018;
+            --bg-nav: #000000;
+            --bg-input: #0e141e;
+            --bg-card: #121a26;
+            --bg-hover: #16202e;
+            --border: rgba(255, 255, 255, 0.08);
+            --border-soft: rgba(255, 255, 255, 0.06);
+            --text: #dee2e6;
+            --text-heading: #ffffff;
+            --text-muted: #c7d2e4;
+            --text-dim: #8b9ab5;
+            --text-faint: #7a869c;
+            --accent: #7c5cff;
+            --accent-2: #4f7cff;
+            --accent-light: #a78bfa;
+            --accent-hover: #6b46f0;
+            --accent-soft: rgba(124, 92, 255, 0.14);
+            --brand-gradient: linear-gradient(135deg, #4f7cff 0%, #7c5cff 100%);
+            --green: #22c55e;
+            --green-soft: rgba(34, 197, 94, 0.14);
+            --yellow: #fbbf24;
+            --blue: #3b82f6;
+            --red: #ef4444;
+            --red-soft: rgba(239, 68, 68, 0.14);
+            --orange: #f97316;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            -webkit-font-smoothing: antialiased;
+            line-height: 1.5;
+        }
+        a { color: inherit; text-decoration: none; }
+        h1, h2, h3, h4 { color: var(--text-heading); }
+
+        /* ---------- Top navbar ---------- */
+        .navbar {
+            position: sticky; top: 0; z-index: 50;
+            display: flex; align-items: center; gap: 1.5rem;
+            padding: 0.85rem 2rem;
+            background: var(--bg-nav);
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .navbar .logo { font-weight: 800; font-size: 1.25rem; letter-spacing: 0.02em; display: flex; align-items: center; gap: 0.5rem; }
+        .navbar .logo .mark {
+            width: 30px; height: 30px; border-radius: 8px;
+            background: var(--brand-gradient);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.9rem; font-weight: 800; color: #fff;
+        }
+        .navbar nav { display: flex; gap: 0.25rem; flex: 1; }
+        .navbar nav a {
+            padding: 0.45rem 0.85rem; border-radius: 8px;
+            color: var(--text-muted); font-size: 0.9rem; font-weight: 500;
+            transition: all 0.15s;
+        }
+        .navbar nav a:hover { color: var(--text); background: rgba(255,255,255,0.06); }
+        .navbar nav a.active { color: var(--text); background: rgba(255,255,255,0.09); }
+        .navbar .user {
+            display: flex; align-items: center; gap: 0.75rem;
+            padding: 0.35rem 0.75rem 0.35rem 0.9rem;
+            background: rgba(255,255,255,0.05); border: 1px solid var(--border-soft);
+            border-radius: 999px; font-size: 0.85rem;
+        }
+        .navbar .user .bal { color: var(--green); font-weight: 600; }
+        .navbar .avatar {
+            width: 28px; height: 28px; border-radius: 50%;
+            background: var(--accent-soft); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 700; font-size: 0.75rem;
+        }
+
+        /* ---------- Layout ---------- */
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem 2rem 4rem; }
+        .page-head { margin-bottom: 1.75rem; }
+        .page-head h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: -0.02em; }
+        .page-head p { color: var(--text-muted); margin-top: 0.25rem; font-size: 0.95rem; }
+
+        /* ---------- Cards ---------- */
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft);
+            border-radius: 14px; padding: 1.25rem 1.4rem;
+        }
+        .card .label { font-size: 0.78rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; margin-bottom: 0.4rem; }
+        .card .value { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; }
+        .card .sub { font-size: 0.8rem; color: var(--text-dim); margin-top: 0.25rem; }
+
+        /* ---------- Table ---------- */
+        .table-wrap { background: var(--bg-card); border: 1px solid var(--border-soft); border-radius: 14px; overflow: hidden; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 0.85rem 1.25rem; text-align: left; font-size: 0.9rem; }
+        th { background: var(--bg-hover); color: var(--text-dim); font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid var(--border-soft); }
+        td { border-bottom: 1px solid var(--border-soft); }
+        tr:last-child td { border-bottom: none; }
+        tr:hover td { background: rgba(255,255,255,0.02); }
+
+        /* ---------- Badges ---------- */
+        .badge { display: inline-block; padding: 0.22rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; }
+        .badge-green { background: var(--green-soft); color: var(--green); }
+        .badge-red { background: var(--red-soft); color: var(--red); }
+        .badge-orange { background: rgba(249, 115, 22, 0.14); color: var(--orange); }
+        .badge-blue { background: rgba(59, 130, 246, 0.14); color: var(--blue); }
+        .badge-yellow { background: rgba(251, 191, 36, 0.14); color: var(--yellow); }
+        .badge-neutral { background: rgba(255,255,255,0.08); color: var(--text-muted); }
+
+        /* ---------- Buttons ---------- */
+        .btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.55rem 1.15rem; border: none; border-radius: 10px; font-size: 0.88rem; font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+        .btn-primary { background: var(--brand-gradient); color: #fff; }
+        .btn-primary:hover { background: var(--accent-hover); }
+        .btn-primary:disabled { opacity: 0.4; pointer-events: none; }
+        .btn-ghost { background: rgba(255,255,255,0.07); color: var(--text); border: 1px solid var(--border-soft); }
+        .btn-ghost:hover { background: rgba(255,255,255,0.12); }
+        .btn-danger { background: var(--red-soft); color: var(--red); }
+        .btn-danger:hover { background: rgba(239,68,68,0.22); }
+        .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+
+        /* ---------- Forms ---------- */
+        .form-group { margin-bottom: 1.1rem; }
+        .form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.35rem; font-weight: 500; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 0.6rem 0.8rem;
+            background: var(--bg-input); border: 1px solid var(--border);
+            border-radius: 10px; color: var(--text); font-size: 0.9rem; font-family: inherit;
+            transition: border-color 0.15s;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
+
+        code { background: rgba(255,255,255,0.07); padding: 0.2rem 0.45rem; border-radius: 6px; font-size: 0.82rem; color: var(--accent); }
+
+        .price-original { text-decoration: line-through; color: var(--text-dim); font-size: 0.82rem; font-weight: 400; }
+        .muted { color: var(--text-muted); }
+        .dim { color: var(--text-dim); }
+        .green { color: var(--green); }
+        .accent { color: var(--accent); }
+        .red { color: var(--red); }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin: 1.5rem 0 1rem; }
+        .section-header h2 { font-size: 1.15rem; font-weight: 700; }
+        .section-header h3 { font-size: 1rem; font-weight: 700; }
+
+        /* ---------- Product grid ---------- */
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1.25rem; }
+        .product-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-soft); border-radius: 14px; overflow: hidden;
+            display: flex; flex-direction: column;
+            transition: border-color 0.15s, transform 0.15s;
+        }
+        .product-card:hover { border-color: rgba(124,92,255,0.45); transform: translateY(-2px); }
+        .product-card .thumb {
+            height: 120px; background: linear-gradient(135deg, rgba(79,124,255,0.20), rgba(124,92,255,0.10));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; font-weight: 800; color: var(--accent-light); letter-spacing: 0.05em;
+            border-bottom: 1px solid var(--border-soft);
+        }
+        .product-card .body { padding: 1.1rem 1.25rem 1.25rem; display: flex; flex-direction: column; flex: 1; }
+        .product-card .body h3 { font-size: 1.05rem; font-weight: 700; margin-bottom: 0.35rem; }
+        .product-card .body .desc { font-size: 0.82rem; color: var(--text-muted); flex: 1; margin-bottom: 0.9rem; }
+        .product-card .meta { display: flex; gap: 0.4rem; margin-bottom: 0.9rem; flex-wrap: wrap; }
+        .product-card .pricing { display: flex; align-items: baseline; gap: 0.5rem; margin-bottom: 1rem; }
+        .product-card .pricing .now { font-size: 1.3rem; font-weight: 800; }
+
+        .empty { text-align: center; padding: 3rem 1rem; color: var(--text-dim); }
+
+        .toast { position: fixed; bottom: 1.25rem; right: 1.25rem; background: var(--brand-gradient); color: #fff; padding: 0.75rem 1.4rem; border-radius: 10px; font-size: 0.9rem; font-weight: 600; box-shadow: 0 8px 24px rgba(0,0,0,0.4); z-index: 200; }
+        @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .toast { animation: slideUp 0.25s ease; }
+    </style>
+</head>
+<body>
+
+{% if reseller %}
+<header class="navbar">
+    <a href="/store" class="logo"><span class="mark">Ξ</span>{{ brand_name }}</a>
+    <nav>
+        <a href="/store" class="{% if request.url.path == '/store' %}active{% endif %}">Dashboard</a>
+        <a href="/store/products" class="{% if '/products' in request.url.path or '/order/' in request.url.path %}active{% endif %}">Products</a>
+        <a href="/store/orders" class="{% if '/orders' in request.url.path %}active{% endif %}">Orders</a>
+        <a href="/store/balance" class="{% if '/balance' in request.url.path %}active{% endif %}">Balance</a>
+        <a href="/store/referrals" class="{% if '/referrals' in request.url.path %}active{% endif %}">Referrals</a>
+    </nav>
+    <a href="/store/logout" class="user">
+        <span class="bal">${{ "%.2f"|format(balance if balance is defined else 0) }}</span>
+        <span class="avatar">{{ (reseller.name[:1]|upper) if reseller.name else 'R' }}</span>
+    </a>
+</header>
+{% endif %}
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

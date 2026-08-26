@@ -1,0 +1,36 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head">
+        <h1>Order History</h1>
+        <p>Every order you've placed, from newest to oldest.</p>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Total</th><th>Customer</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>
+            {% for o in orders %}
+            <tr>
+                <td><strong>{{ o.id }}</strong></td>
+                <td>{{ o.product_name | e }}{% if o.variant_name != 'Default' %} <span class="dim">({{ o.variant_name | e }})</span>{% endif %}</td>
+                <td>{{ o.quantity }}</td>
+                <td class="green">${{ "%.2f"|format(o.total_price) }}</td>
+                <td>{{ o.customer_email | e or '—' }}</td>
+                <td>
+                    {% if o.status == 'pending' %}<span class="badge badge-orange">Pending</span>
+                    {% elif o.status == 'completed' %}<span class="badge badge-green">Done</span>
+                    {% elif o.status == 'failed' %}<span class="badge badge-red">Failed</span>
+                    {% else %}<span class="badge badge-neutral">{{ o.status }}</span>{% endif %}
+                </td>
+                <td class="dim" style="font-size:0.8rem;">{{ o.created_at[:16] }}</td>
+            </tr>
+            {% endfor %}
+            {% if not orders %}
+            <tr><td colspan="7" class="empty">No orders yet.</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

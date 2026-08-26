@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head">
+        <h1>Stock</h1>
+        <p>Live inventory from your SellAuth shop.</p>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Type</th><th>ID</th></tr></thead>
+            <tbody>
+            {% for p in products %}
+            <tr>
+                <td>{{ p.name | e }}</td>
+                <td>${{ "%.2f"|format(p.price) }}</td>
+                <td>
+                    {% if p.stock == 0 %}<span class="badge badge-inactive">Out of stock</span>
+                    {% elif p.stock < 10 %}<span class="stock-low">{{ p.stock }}</span>
+                    {% else %}{{ p.stock }}{% endif %}
+                    {% if p.variants|length > 1 %}
+                    <div class="dim" style="font-size:0.75rem;margin-top:0.25rem;">
+                        {% for v in p.variants %}{{ v.name }}: {{ v.stock }}{% if not loop.last %}, {% endif %}{% endfor %}
+                    </div>
+                    {% endif %}
+                </td>
+                <td><span class="badge badge-discount">{{ p.type | e }}</span></td>
+                <td><code>{{ p.id }}</code></td>
+            </tr>
+            {% endfor %}
+            {% if not products %}
+            <tr><td colspan="5" class="empty">No products loaded.<br><small>Check your <code>SELLAUTH_API_KEY</code> and <code>SELLAUTH_SHOP_ID</code> in <code>.env</code></small></td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

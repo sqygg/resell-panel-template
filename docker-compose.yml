@@ -1,0 +1,11 @@
+services:
+  reseller-panel:
+    build: .
+    container_name: reseller-panel
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./resellers.db:/app/resellers.db
+    env_file:
+      - .env
+    restart: unless-stopped

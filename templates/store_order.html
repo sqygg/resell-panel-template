@@ -1,0 +1,57 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container">
+    <div style="display:flex;gap:2rem;flex-wrap:wrap;">
+        <!-- Product info -->
+        <div style="flex:1;min-width:300px;">
+            <a href="/store/products" class="dim" style="font-size:0.85rem;">← Back to products</a>
+            <h1 style="margin-top:0.75rem;font-size:1.9rem;font-weight:800;">{{ product.name | e }}</h1>
+            {% if product.description %}<p class="muted" style="margin-top:0.5rem;">{{ product.description | e }}</p>{% endif %}
+
+            <div class="card" style="margin-top:1.25rem;">
+                <div class="label">Your Price</div>
+                <div class="value green">${{ "%.2f"|format(product.reseller_price) }}</div>
+                {% if reseller.discount > 0 %}
+                <div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.25rem;">
+                    Retail: <span class="price-original">${{ "%.2f"|format(product.price) }}</span>
+                    <span class="badge badge-orange" style="margin-left:0.4rem;">{{ reseller.discount }}% off</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Order form -->
+        <div style="flex:1;min-width:300px;">
+            <div class="card">
+                <h3 style="font-size:1.05rem;font-weight:700;margin-bottom:1.25rem;">Place Order</h3>
+                <form method="post" action="/store/order/{{ product.id }}">
+                    {% if product.variants %}
+                    <div class="form-group">
+                        <label>Variant</label>
+                        <select name="variant_id">
+                            {% for v in product.variants %}
+                            <option value="{{ v.variant_id }}">{{ v.name | e }} — ${{ "%.2f"|format(v.reseller_price) }}
+                                {% if v.stock is defined and v.stock <= 0 %}(out of stock){% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    {% endif %}
+                    <div class="form-group">
+                        <label>Quantity</label>
+                        <input type="number" name="quantity" value="1" min="1" max="100" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Customer Email (for delivery)</label>
+                        <input type="email" name="customer_email" placeholder="customer@example.com" required>
+                    </div>
+                    <div style="padding:0.75rem 0.9rem;background:var(--bg-input);border-radius:10px;font-size:0.85rem;margin-bottom:1rem;">
+                        <strong>Your Balance:</strong> <span class="green">${{ "%.2f"|format(balance) }}</span>
+                    </div>
+                    <button type="submit" class="btn btn-primary" style="width:100%;">Place Order</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

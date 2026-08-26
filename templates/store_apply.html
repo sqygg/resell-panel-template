@@ -1,0 +1,46 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container" style="max-width:620px;">
+    <div style="text-align:center;margin-bottom:2rem;">
+        <div style="width:56px;height:56px;border-radius:14px;background:var(--brand-gradient);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;margin:0 auto 1rem;">Ξ</div>
+        <h1 style="font-size:1.7rem;font-weight:800;">Reselling Application</h1>
+        <p class="muted" style="margin-top:0.25rem;">Fill out the form with real information about your project. Minimum discount for resellers is 30% with no deposit requirements.</p>
+    </div>
+
+    {% if request.query_params.get('done') %}
+    <div style="background:var(--green-soft);color:var(--green);padding:0.9rem 1.1rem;border-radius:10px;margin-bottom:1.5rem;font-size:0.9rem;font-weight:600;">
+        ✓ Application submitted! We'll review it and contact you on Discord.
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <form method="post" action="/store/apply">
+            <div class="form-group">
+                <label>Email Address *</label>
+                <input type="email" name="email" placeholder="your@email.com" required>
+            </div>
+            <div class="form-group">
+                <label>Discord *</label>
+                <input type="text" name="discord" placeholder="yourdiscord" required>
+            </div>
+            <div class="form-group">
+                <label>Your Website</label>
+                <input type="text" name="website" placeholder="https://your-site.com">
+            </div>
+            <div class="form-group">
+                <label>Your Discord Server</label>
+                <input type="text" name="discord_server" placeholder="discord.gg/yourserver">
+            </div>
+            <div class="form-group">
+                <label>Which product(s) would you like to resell?</label>
+                <input type="text" name="products" placeholder="R6X, Rust, ...">
+            </div>
+            <div class="form-group">
+                <label>Referral Code (optional)</label>
+                <input type="text" name="referral_code" placeholder="If someone referred you" value="{{ ref | e }}">
+            </div>
+            <button type="submit" class="btn btn-primary" style="width:100%;">Submit Application</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

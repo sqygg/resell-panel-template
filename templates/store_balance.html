@@ -1,0 +1,45 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head">
+        <h1>Balance</h1>
+        <p>Your prepaid balance and full transaction history.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <div class="label">Current Balance</div>
+            <div class="value green">${{ "%.2f"|format(balance) }}</div>
+            <div class="sub">Deducted automatically on each order</div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <h2>Transaction History</h2>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Date</th><th>Type</th><th>Amount</th><th>Description</th></tr></thead>
+            <tbody>
+            {% for tx in transactions %}
+            <tr>
+                <td class="dim" style="font-size:0.8rem;">{{ tx.created_at[:16] }}</td>
+                <td>
+                    {% if tx.type == 'credit' %}<span class="badge badge-green">+ Deposit</span>
+                    {% else %}<span class="badge badge-red">- Debit</span>{% endif %}
+                </td>
+                <td>
+                    {% if tx.amount > 0 %}<span class="green">+${{ "%.2f"|format(tx.amount) }}</span>
+                    {% else %}<span class="red">-${{ "%.2f"|format(-tx.amount) }}</span>{% endif %}
+                </td>
+                <td>{{ tx.description | e or '—' }}</td>
+            </tr>
+            {% endfor %}
+            {% if not transactions %}
+            <tr><td colspan="4" class="empty">No transactions yet.</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

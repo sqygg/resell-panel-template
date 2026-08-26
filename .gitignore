@@ -1,0 +1,9 @@
+# Secrets & runtime data
+.env
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

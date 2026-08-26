@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head">
+        <h1>Dashboard</h1>
+        <p>Overview of your reseller operation.</p>
+    </div>
+
+    <div class="cards">
+        <div class="card">
+            <div class="label">Active Resellers</div>
+            <div class="value">{{ active_resellers }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Products</div>
+            <div class="value">{{ total_products }}</div>
+        </div>
+        <div class="card">
+            <div class="label">Total Stock</div>
+            <div class="value">{{ total_stock }}</div>
+        </div>
+    </div>
+
+    <div class="section-header">
+        <h2>Resellers</h2>
+        <a href="/resellers" class="btn btn-ghost btn-sm">Manage →</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Name</th><th>Discount</th><th>Key Prefix</th><th>Requests</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for r in resellers[:5] %}
+            <tr>
+                <td>{{ r.name | e }}</td>
+                <td><span class="badge badge-discount">{{ r.discount_percent }}%</span></td>
+                <td><code>{{ r.api_key_prefix }}...</code></td>
+                <td>{{ r.request_count or 0 }}</td>
+                <td>{% if r.active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+            {% if not resellers %}
+            <tr><td colspan="5" class="empty">No resellers yet — add one!</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section-header" style="margin-top:2rem;">
+        <h2>Products (from SellAuth)</h2>
+        <a href="/stock" class="btn btn-ghost btn-sm">View All →</a>
+    </div>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Type</th></tr></thead>
+            <tbody>
+            {% for p in products[:5] %}
+            <tr>
+                <td>{{ p.name | e }}</td>
+                <td>${{ "%.2f"|format(p.price) }}</td>
+                <td>{% if p.stock == 0 %}<span class="stock-out">0</span>{% elif p.stock < 10 %}<span class="stock-low">{{ p.stock }}</span>{% else %}{{ p.stock }}{% endif %}</td>
+                <td><span class="badge badge-discount">{{ p.type | e }}</span></td>
+            </tr>
+            {% endfor %}
+            {% if not products %}
+            <tr><td colspan="4" class="empty">No products loaded — check SellAuth credentials</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container">
+    <div style="text-align:center;padding:2rem 0;">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--green-soft);color:var(--green);display:flex;align-items:center;justify-content:center;font-size:1.6rem;margin:0 auto 1rem;">✓</div>
+        <h1 style="font-size:1.7rem;font-weight:800;">Order Placed</h1>
+        <p class="muted">Keys are delivered instantly after payment.</p>
+    </div>
+
+    <div class="card" style="max-width:520px;margin:1.5rem auto;">
+        <table style="background:none;border:none;">
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Order #</td><td style="border:none;text-align:right;"><strong>{{ order.id }}</strong></td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Product</td><td style="border:none;text-align:right;">{{ order.product_name | e }}</td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Variant</td><td style="border:none;text-align:right;">{{ order.variant_name | e }}</td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Quantity</td><td style="border:none;text-align:right;">{{ order.quantity }}</td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Price per unit</td><td style="border:none;text-align:right;">${{ "%.2f"|format(order.price_per_unit) }}</td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">Total</td><td style="border:none;text-align:right;"><strong class="green">${{ "%.2f"|format(order.total_price) }}</strong></td></tr>
+            <tr><td class="muted" style="border:none;padding:0.4rem 0;">New Balance</td><td style="border:none;text-align:right;"><span class="accent">${{ "%.2f"|format(new_balance) }}</span></td></tr>
+        </table>
+        {% if invoice_url %}
+        <div style="margin-top:1rem;padding:0.85rem;background:var(--bg-input);border-radius:10px;">
+            <strong style="font-size:0.85rem;">Send this link to your customer:</strong>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                <code style="flex:1;word-break:break-all;font-size:0.72rem;">{{ invoice_url }}</code>
+                <button onclick="navigator.clipboard.writeText('{{ invoice_url }}')" class="btn btn-ghost btn-sm">Copy</button>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-dim);margin-top:0.5rem;">Customer pays on this page — SellAuth auto-delivers after payment.</p>
+        </div>
+        {% endif %}
+    </div>
+    <div style="display:flex;gap:0.5rem;justify-content:center;">
+        <a href="/store/products" class="btn btn-primary">Back to Products</a>
+        <a href="/store/orders" class="btn btn-ghost">View Orders</a>
+    </div>
+</div>
+{% endblock %}

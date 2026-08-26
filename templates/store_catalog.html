@@ -1,0 +1,41 @@
+{% extends "store_base.html" %}
+{% block content %}
+<div class="container">
+    <div class="page-head">
+        <h1>Our Products</h1>
+        <p>Elevate your experience with our premium tools — at your exclusive reseller rate.</p>
+    </div>
+
+    <div class="product-grid">
+    {% for p in products %}
+    <div class="product-card">
+        <div class="thumb">{{ p.name[:2] | upper | e }}</div>
+        <div class="body">
+            <h3>{{ p.name | e }}</h3>
+            {% if p.description %}<div class="desc">{{ p.description[:110] | e }}{% if p.description|length > 110 %}…{% endif %}</div>{% endif %}
+            <div class="meta">
+                <span class="badge badge-neutral">{{ p.type | e }}</span>
+                {% if p.stock == 0 %}
+                <span class="badge badge-red">Out of stock</span>
+                {% elif p.stock < 10 %}
+                <span class="badge badge-orange">{{ p.stock }} left</span>
+                {% else %}
+                <span class="badge badge-green">In stock</span>
+                {% endif %}
+            </div>
+            <div class="pricing">
+                <span class="now">${{ "%.2f"|format(p.reseller_price) }}</span>
+                {% if reseller.discount > 0 %}<span class="price-original">${{ "%.2f"|format(p.price) }}</span>{% endif %}
+            </div>
+            <a href="/store/order/{{ p.id }}" class="btn btn-primary" {% if p.stock == 0 %}disabled{% endif %}>
+                {% if p.stock == 0 %}Out of Stock{% else %}View Product{% endif %}
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+    {% if not products %}
+    <div class="empty" style="grid-column:1/-1;">No products available right now.</div>
+    {% endif %}
+    </div>
+</div>
+{% endblock %}
