@@ -39,8 +39,18 @@ def _resolve_variant(product_id: str, variant_id, product: dict) -> str:
 def _variant_price(product: dict, variant_id: str) -> float:
     for v in product.get("variants") or []:
         if str(v.get("id")) == variant_id:
-            return float(v.get("price", 0))
-    return float(product.get("price", 0))
+            return _safe_float(v.get("price"))
+    return _safe_float(product.get("price"))
+
+
+def _safe_float(val, default=0.0) -> float:
+    """SellAuth sometimes returns price as None/string. Never crash on it."""
+    try:
+        if val is None or val == "":
+            return default
+        return float(val)
+    except (TypeError, ValueError):
+        return default
 
 
 def _do_deliver(

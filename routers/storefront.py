@@ -271,6 +271,16 @@ def reseller_referrals(request: Request):
 
 # ---------- Place Order (dispense key from SellAuth stock) ----------
 
+def _safe_float(val, default=0.0) -> float:
+    """SellAuth sometimes returns price as None/string. Never crash on it."""
+    try:
+        if val is None or val == "":
+            return default
+        return float(val)
+    except (TypeError, ValueError):
+        return default
+
+
 @router.post("/reseller/order/{product_id}")
 def reseller_order_submit(
     request: Request, product_id: str,
@@ -282,13 +292,13 @@ def reseller_order_submit(
         return HTMLResponse("<script>alert('Product not found');window.location='/reseller/catalog';</script>")
     df = 1 - (r["discount"] / 100)
     variant_name = "Default"
-    unit_price = float(product.get("price", 0))
+    unit_price = _safe_float(product.get("price"))
     variant_sellauth_id = None
-    for v in product.get("variants", []):
+    for v in product.get("variants", []) or []:
         if str(v.get("id")) == variant_id or not variant_id:
             variant_sellauth_id = v.get("id")
             variant_name = v.get("name", "Default")
-            unit_price = float(v.get("price", 0))
+            unit_price = _safe_float(v.get("price"), unit_price)
             break
     reseller_price = round(unit_price * df, 2)
     total = round(reseller_price * quantity, 2)

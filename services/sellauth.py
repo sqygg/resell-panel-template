@@ -163,12 +163,12 @@ class SellAuthClient:
                 variants.append({
                     "variant_id": v.get("id"),
                     "name": v.get("name", "Default"),
-                    "price": float(v.get("price", 0)),
+                    "price": float(v.get("price") or 0),
                     "stock": int(v.get("stock", 0) or 0),
                 })
 
             # Use the first variant's price/stock if no variants
-            price = variants[0]["price"] if variants else float(p.get("price", 0))
+            price = variants[0]["price"] if variants else float(p.get("price") or 0)
             stock = variants[0]["stock"] if variants else int(p.get("stock", 0) or 0)
 
             cleaned.append({
