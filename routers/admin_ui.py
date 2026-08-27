@@ -268,18 +268,27 @@ def admin_approve_application(
         return RedirectResponse(url="/login")
     ip = get_client_ip(request)
     app = db.update_application_status(app_id, "approved")
-    if app:
-        try:
-            uname = re.sub(r"[^a-zA-Z0-9_]", "", (app.get("email") or app.get("discord") or f"reseller{app_id}").lower().replace(" ", "_"))[:40]
-            db.create_reseller(
-                name=name.strip(),
-                username=uname,
-                discount_percent=discount_percent,
-                ip=ip,
-                referred_by_code=app.get("referral_code", ""),
-            )
-        except ValueError:
-            pass
+    if not app:
+        return RedirectResponse(url="/admin/applications", status_code=303)
+    try:
+        uname = re.sub(r"[^a-zA-Z0-9_]", "", (app.get("email") or app.get("discord") or f"reseller{app_id}").lower().replace(" ", "_"))[:40]
+        if not uname:
+            uname = f"reseller{app_id}"
+        db.create_reseller(
+            name=name.strip(),
+            username=uname,
+            discount_percent=discount_percent,
+            ip=ip,
+            referred_by_code=app.get("referral_code", ""),
+        )
+    except Exception as e:  # noqa: BLE001 - surface the real error to admin
+        import traceback
+        tb = traceback.format_exc()
+        return HTMLResponse(
+            f"<h2>Approval failed</h2><pre>{e}</pre><pre>{tb}</pre>"
+            f"<p><a href='/admin/applications'>Back</a></p>",
+            status_code=200,
+        )
     return RedirectResponse(url="/admin/applications", status_code=303)
 
 
