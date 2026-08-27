@@ -6,11 +6,7 @@ from fastapi.templating import Jinja2Templates
 
 router = APIRouter(tags=["site"])
 templates = Jinja2Templates(directory="templates")
-
-
-@templates.context_processor
-def _inject_sha():
-    return {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")}
+templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")})
 
 
 @router.get("/", response_class=HTMLResponse)
