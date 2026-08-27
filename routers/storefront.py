@@ -135,7 +135,7 @@ def reseller_catalog(request: Request):
         p["reseller_price"] = round(p["price"] * df, 2)
         for v in p.get("variants", []):
             v["reseller_price"] = round(v["price"] * df, 2)
-            v["delivery_url"] = f"{settings.PUBLIC_URL.rstrip('/') if settings.PUBLIC_URL else str(request.base_url).rstrip('/')}/api/deliver/{r['api_key']}?product_id={p['id']}&variant_id={v['id']}" if r.get("api_key") else ""
+            v["delivery_url"] = f"{settings.PUBLIC_URL.rstrip('/') if settings.PUBLIC_URL else str(request.base_url).rstrip('/')}/api/deliver/{r['api_key']}?product_id={p['id']}&variant_id={v['variant_id']}" if r.get("api_key") else ""
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
         request=request, reseller=r, products=products, balance=balance))
 
@@ -231,6 +231,8 @@ def reseller_order_submit(
         variant_name=variant_name, quantity=quantity, price_per_unit=reseller_price,
         total_price=total, customer_email=customer_email, deliverable=delivered,
     )
+    if not order:
+        return HTMLResponse("<script>alert('Order failed — please retry');window.location='/reseller/catalog';</script>")
     db.deduct_balance(r["id"], total, order["id"], f"Order #{order['id']}: {product.get('name')} x{quantity}")
     db.credit_referral_commission(r["id"], total)
     return templates.TemplateResponse("reseller_order_done.html", _brand_ctx(
