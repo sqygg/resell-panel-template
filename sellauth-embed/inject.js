@@ -37,10 +37,10 @@
     holder.innerHTML =
       '<div class="reseller-portal-bar">' +
         '<span class="reseller-portal-title">' + LABEL + '</span>' +
-        '<a class="reseller-portal-open" href="' + PANEL_URL + '/store/login" ' +
+        '<a class="reseller-portal-open" href="' + PANEL_URL + '/auth" ' +
         'target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>' +
-      '</div>' +
-      '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/store/login" ' +
+        '</div>' +
+        '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/auth" ' +
       'title="' + LABEL + '"></iframe>';
     mountPoint.appendChild(holder);
     return true;
