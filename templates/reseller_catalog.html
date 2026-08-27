@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Catalog · Astro Reseller{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="container">
+    <div class="page-head">
+      <div>
+        <h1>Product Catalog</h1>
+        <p class="muted">Your discounted prices. Order to dispense a real key from stock.</p>
+      </div>
+      <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
+    </div>
+
+    <div class="cards" style="margin-bottom:2rem;">
+      <div class="card"><div class="label">Balance</div><div class="value green">${{ "%.2f"|format(balance) }}</div></div>
+      <div class="card"><div class="label">Your Discount</div><div class="value">{{ reseller.discount }}%</div></div>
+    </div>
+
+    {% for p in products %}
+    <div class="card" style="margin-bottom:1.25rem;padding:1.5rem;">
+      <h3 style="margin-bottom:0.25rem;">{{ p.name }}</h3>
+      <p class="muted" style="margin-bottom:1rem;">Retail: ${{ "%.2f"|format(p.price) }} · Your price: <strong style="color:#fff;">${{ "%.2f"|format(p.reseller_price) }}</strong></p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Variant</th><th>Retail</th><th>Your Price</th><th>Stock</th><th>Delivery URL</th><th></th></tr></thead>
+          <tbody>
+          {% for v in p.variants %}
+            <tr>
+              <td>{{ v.name }}{% if v.stock == 0 %} <span class="badge badge-inactive">Out</span>{% endif %}</td>
+              <td class="dim">${{ "%.2f"|format(v.price) }}</td>
+              <td><strong>${{ "%.2f"|format(v.reseller_price) }}</strong></td>
+              <td>{% if v.stock == -1 %}∞{% else %}{{ v.stock }}{% endif %}</td>
+              <td style="max-width:220px;">
+                {% if v.delivery_url %}<code style="font-size:0.7rem;">{{ v.delivery_url }}</code>{% else %}<span class="dim">—</span>{% endif %}
+              </td>
+              <td>
+                <form method="post" action="/reseller/order/{{ p.id }}" style="display:inline;">
+                  <input type="hidden" name="variant_id" value="{{ v.id }}">
+                  <input type="hidden" name="quantity" value="1">
+                  <button type="submit" class="btn btn-primary btn-sm" {% if v.stock == 0 %}disabled{% endif %}>Dispense</button>
+                </form>
+              </td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endfor %}
+    {% if not products %}<p class="muted">No products configured. Set SELLAUTH_API_KEY + SELLAUTH_SHOP_ID in Railway.</p>{% endif %}
+  </div>
+</div>
+{% endblock %}

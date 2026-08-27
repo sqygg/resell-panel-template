@@ -1,4 +1,5 @@
 """Admin UI — web dashboard with brute-force protection and secure cookies."""
+import os
 import re
 import uuid
 from fastapi import APIRouter, Request, Form, HTTPException
@@ -10,6 +11,11 @@ from services.sellauth import client as sellauth
 
 router = APIRouter(prefix="", tags=["ui"])
 templates = Jinja2Templates(directory="templates")
+
+
+@templates.context_processor
+def _inject_sha():
+    return {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")}
 
 # In-memory session store (valid sessions)
 _active_sessions: dict[str, str] = {}  # session_id -> admin_token
@@ -277,6 +283,7 @@ def admin_approve_application(
         db.create_reseller(
             name=name.strip(),
             username=uname,
+            email=app.get("email", ""),
             discount_percent=discount_percent,
             ip=ip,
             referred_by_code=app.get("referral_code", ""),

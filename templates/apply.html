@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Apply · Astro Reseller{% endblock %}
+{% block content %}
+<div class="auth-wrap">
+  <div class="auth-card">
+    <div class="logo">Ξ</div>
+    <h1>Become a Reseller</h1>
+    <p class="sub">Apply to get discounted products and your own API key</p>
+
+    {% if done %}
+      <div class="alert alert-ok">Application submitted! We'll email you once reviewed.</div>
+    {% endif %}
+    {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
+
+    <form method="post" action="/apply">
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="you@example.com" required>
+      </div>
+      <div class="form-group">
+        <label>Discord</label>
+        <input type="text" name="discord" placeholder="username#0000" required>
+      </div>
+      <div class="form-group">
+        <label>Website (optional)</label>
+        <input type="text" name="website" placeholder="https://">
+      </div>
+      <div class="form-group">
+        <label>Products you'll resell</label>
+        <input type="text" name="products" placeholder="R6x, FN...">
+      </div>
+      <div class="form-group">
+        <label>Referral code (optional)</label>
+        <input type="text" name="referral_code" value="{{ ref }}" placeholder="REFCODE">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Submit Application</button>
+    </form>
+
+    <p class="muted" style="text-align:center;margin-top:1.5rem;">
+      Already approved? <a href="/auth" style="color:#fff;">Sign in</a>
+    </p>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Balance · Astro Reseller{% endblock %}
+{% block content %}
+<div class="page"><div class="container">
+  <div class="page-head"><div><h1>Balance</h1><p class="muted">${{ "%.2f"|format(balance) }} available.</p></div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <div class="card" style="padding:1.5rem;">
+    <h4>Transactions</h4>
+    <div class="table-wrap" style="margin-top:1rem;border:none;">
+      <table><thead><tr><th>Type</th><th>Amount</th><th>Description</th><th>Date</th></tr></thead><tbody>
+      {% for t in transactions %}
+        <tr><td>{% if t.type=='credit' %}<span class="badge badge-active">+</span>{% else %}<span class="badge badge-inactive">−</span>{% endif %}</td>
+          <td>${{ "%.2f"|format(t.amount) }}</td><td class="dim">{{ t.description }}</td><td class="dim" style="font-size:0.8rem;">{{ t.created_at[:16] }}</td></tr>
+      {% endfor %}
+      {% if not transactions %}<tr><td colspan="4" class="dim" style="text-align:center;padding:2rem;">No transactions.</td></tr>{% endif %}
+      </tbody></table>
+    </div>
+  </div>
+</div></div>
+{% endblock %}

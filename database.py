@@ -90,6 +90,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             username TEXT NOT NULL DEFAULT '',
+            email TEXT NOT NULL DEFAULT '',
             api_key_enc TEXT NOT NULL,
             api_key_prefix TEXT NOT NULL,
             discount_percent REAL NOT NULL DEFAULT 0,
@@ -211,6 +212,8 @@ def _migrate():
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(resellers)").fetchall()}
     if "username" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN username TEXT NOT NULL DEFAULT ''")
+    if "email" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN email TEXT NOT NULL DEFAULT ''")
     if "api_key_enc" not in existing and "api_key_hash" in existing:
         # Add encrypted column, copy nothing (old hashed keys are unrecoverable).
         conn.execute("ALTER TABLE resellers ADD COLUMN api_key_enc TEXT")
@@ -280,12 +283,13 @@ def log_login_attempt(ip: str, success: bool):
 
 # ---------- Reseller CRUD ----------
 
-def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "", username: str = "") -> dict:
+def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "", username: str = "", email: str = "") -> dict:
     """Create a reseller. Returns the RAW API KEY once — stored encrypted, revealable later."""
     name = _validate_name(name)
     discount = _validate_discount(discount_percent)
     webhook = _validate_webhook_url(webhook_url)
     username = _validate_username(username) if username else _validate_username(name)
+    email = (email or "").strip().lower()[:200]
 
     raw_key = _generate_raw_key()
     key_enc = _encrypt_key(raw_key)
@@ -302,10 +306,10 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     conn.execute(
-        """INSERT INTO resellers (name, username, api_key_enc, api_key_prefix, discount_percent, webhook_url,
+        """INSERT INTO resellers (name, username, email, api_key_enc, api_key_prefix, discount_percent, webhook_url,
            referral_code, referred_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, username, key_enc, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, username, email, key_enc, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM resellers WHERE username = ?", (username,)).fetchone()
@@ -347,6 +351,23 @@ def get_reseller_by_username_password(username: str, password: str) -> dict | No
     conn = get_db()
     row = conn.execute(
         "SELECT * FROM resellers WHERE username = ? AND active = 1", (username.strip(),)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    stored = row["api_key_enc"]
+    if stored and _decrypt_key(stored) == password:
+        return dict(row)
+    return None
+
+
+def get_reseller_by_email_password(email: str, password: str) -> dict | None:
+    """Login: email + password (password == API key). Returns reseller or None."""
+    if not email or not password:
+        return None
+    conn = get_db()
+    row = conn.execute(
+        "SELECT * FROM resellers WHERE email = ? AND active = 1", (email.strip().lower(),)
     ).fetchone()
     conn.close()
     if not row:

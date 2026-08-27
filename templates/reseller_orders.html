@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Orders · Astro Reseller{% endblock %}
+{% block content %}
+<div class="page"><div class="container">
+  <div class="page-head"><div><h1>Order History</h1><p class="muted">All your dispensed orders.</p></div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <div class="table-wrap">
+    <table><thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody>
+    {% for o in orders %}
+      <tr><td><strong>{{ o.id }}</strong></td>
+        <td>{{ o.product_name }}{% if o.variant_name != 'Default' %} <span class="dim">({{ o.variant_name }})</span>{% endif %}</td>
+        <td>{{ o.quantity }}</td><td class="green">${{ "%.2f"|format(o.total_price) }}</td>
+        <td>{% if o.status=='pending' %}<span class="badge badge-neutral">Pending</span>{% elif o.status=='completed' %}<span class="badge badge-active">Done</span>{% elif o.status=='failed' %}<span class="badge badge-inactive">Failed</span>{% else %}<span class="badge badge-neutral">{{ o.status }}</span>{% endif %}</td>
+        <td class="dim" style="font-size:0.8rem;">{{ o.created_at[:16] }}</td></tr>
+    {% endfor %}
+    {% if not orders %}<tr><td colspan="6" class="dim" style="text-align:center;padding:2rem;">No orders yet.</td></tr>{% endif %}
+    </tbody></table>
+  </div>
+</div></div>
+{% endblock %}

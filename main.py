@@ -64,6 +64,10 @@ app.include_router(admin_ui.router)
 app.include_router(storefront.router)
 app.include_router(landing.router)
 
+# Static assets (VOID theme css)
+from fastapi.staticfiles import StaticFiles
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
 
 # ---------- Error handling — never leak internals ----------
 
