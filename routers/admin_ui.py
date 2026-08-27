@@ -1,4 +1,5 @@
 """Admin UI — web dashboard with brute-force protection and secure cookies."""
+import re
 import uuid
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
