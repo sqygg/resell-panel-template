@@ -92,7 +92,6 @@
     </div>
 </div>
 {% endfor %}
-{% endblock %}
 
 <script>
 function revealKey(id, btn) {
@@ -101,8 +100,8 @@ function revealKey(id, btn) {
     fetch('/api/admin/key/' + id, {credentials: 'same-origin'})
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(d => {
-            navigator.clipboard?.writeText(d.api_key);
-            alert('API Key (copied to clipboard):\\n' + d.api_key);
+            if (navigator.clipboard) navigator.clipboard.writeText(d.api_key);
+            alert('API Key (copied to clipboard):\n' + d.api_key);
             btn.textContent = '🔑 Reveal';
             btn.disabled = false;
         })
@@ -113,3 +112,4 @@ function revealKey(id, btn) {
         });
 }
 </script>
+{% endblock %}
