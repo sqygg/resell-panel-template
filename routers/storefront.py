@@ -218,21 +218,20 @@ def reseller_order_submit(
     balance = db.get_balance(r["id"])
     if balance < total:
         return HTMLResponse(f"<script>alert('Insufficient balance. Need ${total:.2f}, have ${balance:.2f}');window.location='/reseller/catalog';</script>")
-    # Dispense a real key from SellAuth stock via the delivery endpoint logic
+    # Dispense a real key from SellAuth stock (only charge if we actually got one)
     delivered = ""
     try:
         delivered = sellauth.dispense_one(product_id, variant_sellauth_id or product.get("variants", [{}])[0].get("id"))
     except Exception:
         delivered = ""
+    if not delivered:
+        return HTMLResponse("<script>alert('Out of stock — key could not be dispensed');window.location='/reseller/catalog';</script>")
     order = db.create_order(
         reseller_id=r["id"], product_id=product_id, product_name=product.get("name", "Unknown"),
         variant_name=variant_name, quantity=quantity, price_per_unit=reseller_price,
         total_price=total, customer_email=customer_email, deliverable=delivered,
     )
-    try:
-        db.deduct_balance(r["id"], total, order["id"], f"Order #{order['id']}: {product.get('name')} x{quantity}")
-    except ValueError as e:
-        return HTMLResponse(f"<script>alert('{e}');window.location='/reseller/catalog';</script>")
+    db.deduct_balance(r["id"], total, order["id"], f"Order #{order['id']}: {product.get('name')} x{quantity}")
     db.credit_referral_commission(r["id"], total)
     return templates.TemplateResponse("reseller_order_done.html", _brand_ctx(
         request=request, reseller=r, order=order, deliverable=delivered,

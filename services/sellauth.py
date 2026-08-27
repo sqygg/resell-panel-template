@@ -100,6 +100,29 @@ class SellAuthClient:
             return None
         return keys[0]
 
+    def dispense_bulk(self, product_id: str, variant_id: str | int, quantity: int) -> list[str] | None:
+        """Atomically take up to `quantity` keys from SellAuth stock.
+
+        Returns the taken key list, or None on upstream failure.
+        If fewer than `quantity` are in stock, returns [] WITHOUT consuming
+        (caller should treat empty as out-of-stock).
+        """
+        keys = self.get_deliverables(product_id, variant_id)
+        if keys is None:
+            return None
+        if len(keys) < quantity:
+            return []
+        take = keys[:quantity]
+        remaining = keys[quantity:]
+        result = self._request(
+            "PUT",
+            f"/shops/{self.shop_id}/products/{product_id}/deliverables/overwrite/{variant_id}",
+            json={"deliverables": remaining, "confirm_empty": True},
+        )
+        if result is None:
+            return None
+        return take
+
     # ---------- Stock sync ----------
 
     def sync_stock_snapshot(self) -> dict:

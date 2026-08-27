@@ -49,7 +49,7 @@ def set_session_cookie(response, admin_token: str):
         value=sid,
         httponly=True,
         samesite="strict",
-        secure=False,  # Set True if using HTTPS
+        secure=True,  # HTTPS only (Railway terminates TLS)
         max_age=SESSION_MAX_AGE,
     )
 
