@@ -90,6 +90,15 @@ async def not_found_handler(request: Request, exc):
     return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 
+@app.exception_handler(401)
+async def unauthorized_handler(request: Request, exc):
+    # Browser page loads get redirected to login; API clients get JSON 401
+    if "text/html" in request.headers.get("accept", ""):
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/auth", status_code=303)
+    return JSONResponse(status_code=401, content={"detail": exc.detail or "Unauthorized"})
+
+
 @app.exception_handler(405)
 async def method_not_allowed(request: Request, exc):
     return JSONResponse(status_code=405, content={"detail": "Method not allowed"})

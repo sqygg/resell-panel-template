@@ -12,7 +12,7 @@
        "Open in new tab ↗" button always works.
    ============================================================ */
 (function () {
-  const PANEL_URL = "https://reseller-panel.up.railway.app"; // <-- SET TO YOUR RAILWAY URL
+  const PANEL_URL = "https://resell-panel-production.up.railway.app"; // <-- SET TO YOUR RAILWAY URL
   const LABEL = "Reseller Panel";
 
   function onBlog() {
