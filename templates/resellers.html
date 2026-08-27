@@ -1,6 +1,11 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="container">
+    <div style="display:flex;gap:0.5rem;margin-bottom:1.25rem;flex-wrap:wrap;">
+        <a href="/admin/applications" class="btn btn-ghost btn-sm">📥 Applications</a>
+        <a href="/admin" class="btn btn-ghost btn-sm">👥 Resellers</a>
+        <a href="/admin/orders" class="btn btn-ghost btn-sm">🧾 Orders</a>
+    </div>
     <div class="page-head" style="display:flex;justify-content:space-between;align-items:flex-end;">
         <div>
             <h1>Resellers</h1>
@@ -29,6 +34,10 @@
                             <button type="submit" class="btn btn-ghost btn-sm">🔄</button>
                         </form>
                         <a href="/resellers/{{ r.id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('Delete {{ r.name | e }}? Permanent.')">×</a>
+                    </div>
+                    <div id="key-box-{{ r.id }}" style="display:none;margin-top:0.6rem;">
+                        <code id="key-val-{{ r.id }}" style="display:block;padding:0.6rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;word-break:break-all;"></code>
+                        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:0.4rem;" onclick="copyKey({{ r.id }})">Copy</button>
                     </div>
                 </td>
             </tr>
@@ -100,8 +109,9 @@ function revealKey(id, btn) {
     fetch('/api/admin/key/' + id, {credentials: 'same-origin'})
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(d => {
+            document.getElementById('key-val-' + id).textContent = d.api_key;
+            document.getElementById('key-box-' + id).style.display = 'block';
             if (navigator.clipboard) navigator.clipboard.writeText(d.api_key);
-            alert('API Key (copied to clipboard):\n' + d.api_key);
             btn.textContent = '🔑 Reveal';
             btn.disabled = false;
         })
@@ -110,6 +120,13 @@ function revealKey(id, btn) {
             btn.textContent = '🔑 Reveal';
             btn.disabled = false;
         });
+}
+function copyKey(id) {
+    const t = document.getElementById('key-val-' + id).textContent;
+    navigator.clipboard.writeText(t);
+    const b = event.target;
+    const old = b.textContent; b.textContent = 'Copied!';
+    setTimeout(() => b.textContent = old, 1500);
 }
 </script>
 {% endblock %}
