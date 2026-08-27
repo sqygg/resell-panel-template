@@ -164,6 +164,7 @@ def reseller_update(
     discount_percent: float = Form(0),
     webhook_url: str = Form("", max_length=500),
     active: str = Form("1"),
+    sellauth_email: str = Form("", max_length=200),
 ):
     if not check_ui_auth(request):
         return RedirectResponse(url="/login")
@@ -179,7 +180,20 @@ def reseller_update(
         )
     except ValueError:
         pass  # Silently ignore — don't expose validation errors to UI
+    db.set_sellauth_email(reseller_id, sellauth_email, ip=ip)
     return RedirectResponse(url="/resellers", status_code=303)
+
+
+@router.post("/resellers/{reseller_id}/sync")
+def reseller_sync(request: Request, reseller_id: int):
+    if not check_ui_auth(request):
+        return RedirectResponse(url="/login")
+    ip = get_client_ip(request)
+    try:
+        db.sync_balance_from_sellauth(reseller_id, ip=ip)
+    except ValueError as e:
+        return HTMLResponse(f"<script>alert('{str(e)}');window.location='/resellers';</script>")
+    return RedirectResponse(url="/resellers?synced=1", status_code=303)
 
 
 @router.get("/resellers/{reseller_id}/delete")

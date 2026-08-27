@@ -184,3 +184,26 @@ def deliver_get(
     return _do_deliver(
         api_key, product_id, variant_id, quantity, customer_email, order_id, request,
     )
+
+
+@router.post("/{api_key}/product/{product_id}")
+def deliver_post_product(api_key: str, product_id: str, body: DeliveryRequest, request: Request):
+    return _do_deliver(
+        api_key, product_id, body.variant_id, body.quantity,
+        body.customer_email, body.order_id, request,
+    )
+
+
+@router.get("/{api_key}/product/{product_id}")
+def deliver_get_product(
+    api_key: str,
+    product_id: str,
+    request: Request,
+    variant_id: str | int | None = Query(None),
+    quantity: int = Query(1),
+    customer_email: str = Query(""),
+    order_id: str | None = Query(None),
+):
+    return _do_deliver(
+        api_key, product_id, variant_id, quantity, customer_email, order_id, request,
+    )

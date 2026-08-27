@@ -184,4 +184,32 @@ class SellAuthClient:
         return cleaned
 
 
+    # ---------- Customer (store balance mirror) ----------
+
+    def get_customer_by_email(self, email: str) -> dict | None:
+        """Look up a SellAuth customer record by email. Returns {id, email, balance} or None."""
+        data = self._request(
+            "GET",
+            f"/shops/{self.shop_id}/customers",
+            json={"page": 1, "perPage": 50, "email": email},
+        )
+        if not data:
+            return None
+        rows = data.get("data", []) if isinstance(data, dict) else data
+        for c in rows:
+            if (c.get("email") or "").lower() == (email or "").lower():
+                return c
+        return None
+
+    def get_customer_balance(self, email: str) -> float | None:
+        """Return a customer's store balance (USD) by email, or None if not found."""
+        c = self.get_customer_by_email(email)
+        if not c:
+            return None
+        try:
+            return float(c.get("balance", 0) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+
 client = SellAuthClient()

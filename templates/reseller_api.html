@@ -21,13 +21,30 @@
     </div>
 
     <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
+      <div class="page-head">
+        <div><h4>SellAuth Balance Link</h4><p class="muted">Your spendable balance mirrors your SellAuth store customer balance.</p></div>
+        {% if sellauth_email %}
+          <form action="/reseller/api/sync" method="post"><button class="btn btn-ghost btn-sm">Sync now</button></form>
+        {% endif %}
+      </div>
+      {% if sellauth_email %}
+        <p class="muted" style="font-size:0.85rem;">Linked email: <code>{{ sellauth_email }}</code></p>
+        <p style="font-size:1.5rem;font-weight:700;color:var(--green);">${{ "%.2f"|format(balance) }} {% if balance_source == 'cache' %}<span class="dim" style="font-size:0.8rem;">(cached)</span>{% endif %}</p>
+      {% else %}
+        <p class="dim" style="font-size:0.85rem;">No SellAuth email linked. Ask the store owner to link your account — the panel balance will then mirror your store balance.</p>
+      {% endif %}
+    </div>
+
+    <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
       <h4>Delivery Endpoint</h4>
       <p class="muted">Dispense a key for a product/variant. Replace IDs:</p>
       <code style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;word-break:break-all;">{{ public_url }}/api/deliver/{{ api_key }}?product_id=&lt;id&gt;&variant_id=&lt;id&gt;</code>
+      <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Or use the per-product URL from the catalog — no editing needed. Balance is checked &amp; deducted per request.</p>
     </div>
   </div>
 </div>
 <script>
 function copyKey(){ const t=document.getElementById('akey').textContent; navigator.clipboard?.writeText(t); alert('Copied!'); }
+{% if request.query_params.get('synced') == '1' %}window.addEventListener('load', ()=>alert('Balance synced from SellAuth.'));{% endif %}
 </script>
 {% endblock %}

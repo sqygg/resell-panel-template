@@ -112,14 +112,15 @@ def apply_submit(
 @router.get("/reseller", response_class=HTMLResponse)
 def reseller_dashboard(request: Request):
     r = require_reseller(request)
-    balance = db.get_balance(r["id"])
+    balance_info = db.get_sellauth_balance(r["id"])
     orders = db.get_orders(r["id"], limit=10)
     referrals = db.get_referrals(r["id"])
     total_spent = sum(o["total_price"] for o in db.get_orders(r["id"], limit=1000))
     total_orders = len(db.get_orders(r["id"], limit=1000))
     referral_earned = sum(x["total_earned"] for x in referrals)
     return templates.TemplateResponse("reseller_dashboard.html", _brand_ctx(
-        request=request, reseller=r, balance=balance, orders=orders,
+        request=request, reseller=r, balance=balance_info["balance"], balance_source=balance_info["source"],
+        sellauth_email=balance_info["email"], orders=orders,
         referrals=referrals, total_spent=total_spent, total_orders=total_orders,
         referral_earned=referral_earned, referral_count=len(referrals),
     ))
@@ -129,22 +130,40 @@ def reseller_dashboard(request: Request):
 def reseller_catalog(request: Request):
     r = require_reseller(request)
     products = sellauth.get_products_for_webhook()
-    balance = db.get_balance(r["id"])
+    balance_info = db.get_sellauth_balance(r["id"])
     df = 1 - (r["discount"] / 100)
+    base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     for p in products:
         p["reseller_price"] = round(p["price"] * df, 2)
         for v in p.get("variants", []):
             v["reseller_price"] = round(v["price"] * df, 2)
-            v["delivery_url"] = f"{settings.PUBLIC_URL.rstrip('/') if settings.PUBLIC_URL else str(request.base_url).rstrip('/')}/api/deliver/{r['api_key']}?product_id={p['id']}&variant_id={v['variant_id']}" if r.get("api_key") else ""
+            if r.get("api_key"):
+                v["delivery_url"] = f"{base}/api/deliver/{r['api_key']}/product/{p['id']}?variant_id={v['variant_id']}"
+            else:
+                v["delivery_url"] = ""
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
-        request=request, reseller=r, products=products, balance=balance))
+        request=request, reseller=r, products=products, balance=balance_info["balance"],
+        balance_source=balance_info["source"], sellauth_email=balance_info["email"]))
 
 
 @router.get("/reseller/api", response_class=HTMLResponse)
 def reseller_api_page(request: Request):
     r = require_reseller(request)
+    balance_info = db.get_sellauth_balance(r["id"])
     return templates.TemplateResponse("reseller_api.html", _brand_ctx(
-        request=request, reseller=r, api_key=r.get("api_key", "")))
+        request=request, reseller=r, api_key=r.get("api_key", ""),
+        balance=balance_info["balance"], balance_source=balance_info["source"],
+        sellauth_email=balance_info["email"]))
+
+
+@router.post("/reseller/api/sync")
+def reseller_sync_balance(request: Request):
+    r = require_reseller(request)
+    try:
+        info = db.sync_balance_from_sellauth(r["id"], ip=get_client_ip(request))
+    except ValueError as e:
+        return HTMLResponse(f"<script>alert('{e}');window.location='/reseller/api';</script>")
+    return RedirectResponse(url="/reseller/api?synced=1", status_code=303)
 
 
 @router.get("/reseller/api/regen", response_class=HTMLResponse)
@@ -171,9 +190,12 @@ def reseller_orders(request: Request):
 @router.get("/reseller/balance", response_class=HTMLResponse)
 def reseller_balance(request: Request):
     r = require_reseller(request)
+    balance_info = db.get_sellauth_balance(r["id"], force=True)
     transactions = db.get_transactions(r["id"])
     return templates.TemplateResponse("reseller_balance.html", _brand_ctx(
-        request=request, reseller=r, balance=db.get_balance(r["id"]), transactions=transactions))
+        request=request, reseller=r, balance=balance_info["balance"],
+        balance_source=balance_info["source"], sellauth_email=balance_info["email"],
+        transactions=transactions))
 
 
 @router.get("/reseller/referrals", response_class=HTMLResponse)

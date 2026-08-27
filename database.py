@@ -6,6 +6,9 @@ import hmac
 import re
 from datetime import datetime, timezone
 
+# SellAuth client instance (services.sellauth.client). Balance read lives on the instance.
+from services.sellauth import client as _sellauth_client  # noqa: E402
+
 
 # ---------- Constants ----------
 
@@ -221,6 +224,12 @@ def _migrate():
     if "api_key_hash" in existing:
         # Drop the obsolete hashed column (replaced by encrypted storage).
         conn.execute("ALTER TABLE resellers DROP COLUMN api_key_hash")
+    if "sellauth_email" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN sellauth_email TEXT NOT NULL DEFAULT ''")
+    if "sellauth_balance_cache" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN sellauth_balance_cache REAL NOT NULL DEFAULT 0")
+    if "sellauth_balance_ts" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN sellauth_balance_ts TEXT NOT NULL DEFAULT ''")
     if "referral_code" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN referral_code TEXT")
     if "referred_by" not in existing:
@@ -488,6 +497,100 @@ def reveal_api_key(reseller_id: int) -> str | None:
     return _decrypt_key(row["api_key_enc"])
 
 
+# ---------- SellAuth customer linkage (balance mirror) ----------
+
+def set_sellauth_email(reseller_id: int, email: str, ip: str = "") -> None:
+    email = (email or "").strip().lower()
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET sellauth_email = ?, updated_at = ? WHERE id = ?",
+        (email, now, reseller_id),
+    )
+    conn.commit()
+    conn.close()
+    _audit("reseller_email_linked", reseller_id, f"email={email}", ip)
+
+
+def get_sellauth_email(reseller_id: int) -> str:
+    conn = get_db()
+    row = conn.execute("SELECT sellauth_email FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
+    conn.close()
+    return (row["sellauth_email"] or "") if row else ""
+
+
+def get_sellauth_balance(reseller_id: int, force: bool = False) -> dict:
+    """Return the reseller's SellAuth store balance.
+
+    Cached 60s unless force=True. Returns
+    {"email":..., "balance": float, "source": "live"|"cache"|"none", "cached_at":...}
+    """
+    conn = get_db()
+    row = conn.execute(
+        "SELECT sellauth_email, sellauth_balance_cache, sellauth_balance_ts FROM resellers WHERE id = ?",
+        (reseller_id,),
+    ).fetchone()
+    conn.close()
+    email = (row["sellauth_email"] or "") if row else ""
+    if not email:
+        return {"email": "", "balance": 0.0, "source": "none", "cached_at": ""}
+
+    # Serve cache if fresh and not forced
+    ts = row["sellauth_balance_ts"] if row else ""
+    if not force and ts:
+        try:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(ts)).total_seconds()
+            if age < 60:
+                return {"email": email, "balance": float(row["sellauth_balance_cache"] or 0), "source": "cache", "cached_at": ts}
+        except Exception:
+            pass
+
+    # Live fetch
+    bal = _sellauth_client.get_customer_balance(email) if email else None
+    if bal is None:
+        # keep last cache if fetch failed
+        return {"email": email, "balance": float(row["sellauth_balance_cache"] or 0) if row else 0.0, "source": "none", "cached_at": ts}
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET sellauth_balance_cache = ?, sellauth_balance_ts = ? WHERE id = ?",
+        (bal, now, reseller_id),
+    )
+    conn.commit()
+    conn.close()
+    return {"email": email, "balance": bal, "source": "live", "cached_at": now}
+
+
+def sync_balance_from_sellauth(reseller_id: int, ip: str = "") -> dict:
+    """Pull the linked SellAuth customer balance and OVERWRITE the panel's
+    spendable balance with it. Returns {'balance': float, 'email': str, 'source': str}."""
+    email = get_sellauth_email(reseller_id)
+    if not email:
+        raise ValueError("No SellAuth email linked for this reseller")
+    bal = _sellauth_client.get_customer_balance(email)
+    if bal is None:
+        raise ValueError("Could not read SellAuth balance (check API token / email)")
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    conn.execute(
+        "INSERT INTO reseller_balances (reseller_id, balance, updated_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(reseller_id) DO UPDATE SET balance = ?, updated_at = ?",
+        (reseller_id, bal, now, bal, now),
+    )
+    conn.execute(
+        "INSERT INTO balance_transactions (reseller_id, amount, type, description) VALUES (?, ?, 'sync', ?)",
+        (reseller_id, bal, f"Synced from SellAuth ({email})"),
+    )
+    conn.execute(
+        "UPDATE resellers SET sellauth_balance_cache = ?, sellauth_balance_ts = ? WHERE id = ?",
+        (bal, now, reseller_id),
+    )
+    conn.commit()
+    conn.close()
+    _audit("balance_synced", reseller_id, f"=${bal:.2f} <- SellAuth {email}", ip)
+    return {"balance": bal, "email": email, "source": "live"}
+
+
 def record_webhook_usage(reseller_id: int, endpoint: str, status_code: int, response_time_ms: float, ip: str = ""):
     conn = get_db()
     conn.execute(
@@ -577,17 +680,18 @@ def create_order(
     price_per_unit: float,
     total_price: float,
     customer_email: str = "",
+    deliverable: str = "",
     sellauth_invoice_id: int | None = None,
     sellauth_invoice_url: str = "",
 ) -> dict:
     conn = get_db()
     conn.execute(
         """INSERT INTO orders (reseller_id, product_id, product_name, variant_name, quantity,
-           price_per_unit, total_price, customer_email, sellauth_invoice_id,
+           price_per_unit, total_price, customer_email, deliverable, sellauth_invoice_id,
            sellauth_invoice_url, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
         (reseller_id, product_id, product_name, variant_name, quantity,
-         price_per_unit, total_price, customer_email,
+         price_per_unit, total_price, customer_email, deliverable,
          sellauth_invoice_id, sellauth_invoice_url),
     )
     conn.commit()

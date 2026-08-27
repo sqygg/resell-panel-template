@@ -2,7 +2,21 @@
 {% block title %}Balance · Astro Reseller{% endblock %}
 {% block content %}
 <div class="page"><div class="container">
-  <div class="page-head"><div><h1>Balance</h1><p class="muted">${{ "%.2f"|format(balance) }} available.</p></div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <div class="page-head"><div><h1>Balance</h1><p class="muted">${{ "%.2f"|format(balance) }} available to spend.</p></div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <div class="card" style="padding:1.5rem;margin-bottom:1.25rem;">
+    <div class="page-head" style="align-items:flex-end;">
+      <div>
+        <p class="muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;">Spendable Balance</p>
+        <p style="font-size:2rem;font-weight:800;color:var(--green);margin:0.25rem 0;">${{ "%.2f"|format(balance) }}</p>
+        {% if sellauth_email %}
+          <p class="muted" style="font-size:0.8rem;">Mirrors SellAuth customer <code>{{ sellauth_email }}</code>{% if balance_source == 'cache' %} · cached{% endif %}</p>
+          <form action="/reseller/api/sync" method="post" style="margin-top:0.5rem;"><button class="btn btn-ghost btn-sm">Sync from SellAuth</button></form>
+        {% else %}
+          <p class="dim" style="font-size:0.8rem;">Not linked to a SellAuth customer — ask the store owner to link your email.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
   <div class="card" style="padding:1.5rem;">
     <h4>Transactions</h4>
     <div class="table-wrap" style="margin-top:1rem;border:none;">

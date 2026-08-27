@@ -15,7 +15,7 @@
       <div class="card">
         <div class="label">Balance</div>
         <div class="value green">${{ "%.2f"|format(balance) }}</div>
-        <div class="sub">Available to spend</div>
+        <div class="sub">SellAuth store balance{% if sellauth_email %} · {{ sellauth_email }}{% else %} · <a href="/reseller/api" style="color:#fff;">link email</a>{% endif %}{% if balance_source == 'cache' %} · cached{% endif %}</div>
       </div>
       <div class="card">
         <div class="label">Your Discount</div>
