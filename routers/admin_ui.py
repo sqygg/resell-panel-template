@@ -84,6 +84,11 @@ def login_action(request: Request, password: str = Form(...)):
         return resp
 
     db.log_login_attempt(ip, False)
+    try:
+        from services.discord_log import log_event
+        log_event(f"**Failed admin login** from `{ip}`", level="warn", title="🔐 Admin Auth")
+    except Exception:
+        pass
     return RedirectResponse(url="/login?error=1", status_code=303)
 
 

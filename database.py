@@ -271,6 +271,17 @@ def _audit(action: str, reseller_id: int | None = None, details: str = "", ip: s
     )
     conn.commit()
     conn.close()
+    # Mirror to Discord (best-effort, non-blocking)
+    try:
+        from services.discord_log import log_event
+        log_event(
+            f"`{action}`" + (f" — {details[:300]}" if details else ""),
+            level="audit",
+            title="📋 Audit",
+            fields={"reseller_id": reseller_id if reseller_id is not None else "—", "ip": ip or "—"},
+        )
+    except Exception:
+        pass
 
 
 # ---------- Brute force check ----------

@@ -48,6 +48,8 @@ class Settings:
 
     # ---------- Notifications (new applications) ----------
     DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
+    # Dedicated channel for audit/error logging (falls back to DISCORD_WEBHOOK_URL if unset)
+    DISCORD_LOG_WEBHOOK_URL: str = os.getenv("DISCORD_LOG_WEBHOOK_URL", "")
     NTFY_TOPIC: str = os.getenv("NTFY_TOPIC", "")
     NTFY_SERVER: str = os.getenv("NTFY_SERVER", "https://ntfy.angelatos.gr")
 
