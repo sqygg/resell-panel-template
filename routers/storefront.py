@@ -205,12 +205,43 @@ def reseller_api_regen(request: Request):
         request=request, reseller=r, new_key=new_key))
 
 
-@router.get("/reseller/orders", response_class=HTMLResponse)
-def reseller_orders(request: Request):
+@router.get("/reseller/buy", response_class=HTMLResponse)
+def reseller_buy_page(request: Request):
     r = require_reseller(request)
-    orders = db.get_orders(r["id"])
-    return templates.TemplateResponse("reseller_orders.html", _brand_ctx(
-        request=request, reseller=r, orders=orders, balance=db.get_balance(r["id"])))
+    products = sellauth.get_products_for_webhook()
+    balance_info = db.get_sellauth_balance(r["id"])
+    df = 1 - (r["discount"] / 100)
+    base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
+    for p in products:
+        p["reseller_price"] = round(p["price"] * df, 2)
+        for v in p.get("variants", []):
+            v["reseller_price"] = round(v["price"] * df, 2)
+    return templates.TemplateResponse("reseller_buy.html", _brand_ctx(
+        request=request, reseller=r, products=products, balance=balance_info["balance"],
+        balance_source=balance_info["source"], sellauth_email=balance_info["email"],
+        api_key=r.get("api_key", ""), base=base))
+
+
+@router.post("/reseller/buy/submit", response_class=HTMLResponse)
+def reseller_buy_submit(request: Request, product_id: str = Form(...), variant_id: str = Form(""), quantity: int = Form(1)):
+    r = require_reseller(request)
+    api_key = r.get("api_key", "")
+    if not api_key:
+        return HTMLResponse("<script>alert('No API key set — contact store owner');window.location='/reseller/buy';</script>")
+    # Reuse the exact same delivery core as the API (balance gate, stock dispense, deduct)
+    try:
+        from routers.api_delivery import _do_deliver
+        result = _do_deliver(api_key, product_id, variant_id or None, quantity, "", None, request)
+    except HTTPException as e:
+        msg = e.detail if isinstance(e.detail, str) else str(e.detail)
+        return HTMLResponse(f"<script>alert('{msg}');window.location='/reseller/buy';</script>")
+    # result is a dict on success
+    keys = result.get("keys", [])
+    new_bal = db.get_balance(r["id"])
+    return templates.TemplateResponse("reseller_buy_done.html", _brand_ctx(
+        request=request, reseller=r, product_id=product_id, variant_id=variant_id,
+        quantity=quantity, total=result.get("total_charged", 0), keys=keys,
+        new_balance=new_bal, order_id=result.get("order_id")))
 
 
 @router.get("/reseller/balance", response_class=HTMLResponse)

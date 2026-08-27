@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Purchase Complete · Astro Reseller{% endblock %}
+{% block content %}
+<div class="page"><div class="container">
+  <div class="page-head"><div>
+    <h1>Keys Delivered</h1>
+    <p class="muted">Order #{{ order_id }} · ${{ "%.2f"|format(total) }} deducted.</p>
+  </div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+
+  <div class="card" style="padding:1.5rem;">
+    <p class="muted" style="margin-bottom:0.5rem;">Your keys ({{ keys|length }}):</p>
+    <textarea readonly style="width:100%;min-height:140px;padding:0.75rem;background:var(--bg);border:1px solid var(--border);border-radius:0.5rem;color:var(--text);font-size:0.85rem;font-family:monospace;">{{ keys|join('\n') }}</textarea>
+    <button class="btn btn-ghost btn-sm" style="margin-top:0.5rem;" onclick="copyKeys()">Copy All</button>
+  </div>
+
+  <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
+    <strong>New balance: <span class="green">${{ "%.2f"|format(new_balance) }}</span></strong>
+    <div style="margin-top:1rem;display:flex;gap:0.5rem;">
+      <a href="/reseller/buy" class="btn btn-primary btn-sm">Buy More</a>
+      <a href="/reseller/orders" class="btn btn-ghost btn-sm">View Orders</a>
+    </div>
+  </div>
+</div></div>
+<script>
+function copyKeys(){ const t=document.querySelector('textarea'); navigator.clipboard?.writeText(t.value); alert('Keys copied!'); }
+</script>
+{% endblock %}

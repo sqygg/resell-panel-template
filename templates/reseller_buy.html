@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Buy Keys · Astro Reseller{% endblock %}
+{% block content %}
+<div class="page"><div class="container">
+  <div class="page-head"><div>
+    <h1>Buy Keys</h1>
+    <p class="muted">Purchase keys directly — balance is deducted and keys are delivered to you instantly. No webhook needed.</p>
+  </div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+
+  <div class="cards" style="margin-bottom:1.5rem;">
+    <div class="card"><div class="label">Your Balance</div><div class="value green">${{ "%.2f"|format(balance) }}</div>
+      <div class="sub">SellAuth store{% if sellauth_email %} · {{ sellauth_email }}{% else %} · link email{% endif %}{% if balance_source == 'cache' %} · cached{% endif %}</div></div>
+    <div class="card"><div class="label">Your Discount</div><div class="value">{{ reseller.discount }}%</div></div>
+  </div>
+
+  <div class="card" style="padding:1.5rem;">
+    <form method="post" action="/reseller/buy/submit" id="buyForm">
+      <div class="form-group">
+        <label>Product</label>
+        <select name="product_id" id="product" onchange="onProduct()" required style="padding:0.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
+          <option value="">Select product…</option>
+          {% for p in products %}
+            <option value="{{ p.id }}" data-price="{{ p.reseller_price }}">{{ p.name }} — ${{ "%.2f"|format(p.reseller_price) }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" id="variantGroup" style="display:none;">
+        <label>Variant</label>
+        <select name="variant_id" id="variant" onchange="updateTotal()" style="padding:0.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
+          <option value="">Default</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Quantity</label>
+        <input type="number" name="quantity" id="qty" min="1" max="50" value="1" onchange="updateTotal()" style="padding:0.6rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;max-width:140px;">
+      </div>
+      <div style="margin:1rem 0;font-size:1.1rem;">Total: <strong style="color:var(--green);" id="total">$0.00</strong></div>
+      <button type="submit" class="btn btn-primary">Buy &amp; Receive Keys</button>
+    </form>
+  </div>
+</div></div>
+
+<script>
+const PRODUCTS = {
+{% for p in products %}
+  "{{ p.id }}": { price: {{ p.reseller_price }}, variants: [
+    {% for v in p.variants %}{ id: "{{ v.variant_id }}", name: "{{ v.name }}", price: {{ v.reseller_price }} }{% if not loop.last %},{% endif %}{% endfor %}
+  ] },
+{% endfor %}
+};
+function onProduct(){
+  const pid = document.getElementById('product').value;
+  const vg = document.getElementById('variantGroup');
+  const vsel = document.getElementById('variant');
+  vsel.innerHTML = '<option value="">Default</option>';
+  if(pid && PRODUCTS[pid].variants.length){
+    vg.style.display = 'block';
+    PRODUCTS[pid].variants.forEach(v=>{
+      const o=document.createElement('option'); o.value=v.id; o.textContent=v.name+' — $'+v.price.toFixed(2); vsel.appendChild(o);
+    });
+  } else { vg.style.display='none'; }
+  updateTotal();
+}
+function updateTotal(){
+  const pid = document.getElementById('product').value;
+  const vid = document.getElementById('variant').value;
+  const qty = parseInt(document.getElementById('qty').value)||1;
+  if(!pid){ document.getElementById('total').textContent='$0.00'; return; }
+  let unit = PRODUCTS[pid].price;
+  if(vid){ const v=PRODUCTS[pid].variants.find(x=>x.id===vid); if(v) unit=v.price; }
+  document.getElementById('total').textContent='$'+(unit*qty).toFixed(2);
+}
+updateTotal();
+</script>
+{% endblock %}
