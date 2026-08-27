@@ -23,6 +23,7 @@
                 <td>{% if r.active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
                 <td>
                     <div class="actions">
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="revealKey({{ r.id }}, this)">🔑 Reveal</button>
                         <a href="#edit-modal-{{ r.id }}" class="btn btn-ghost btn-sm">Edit</a>
                         <form method="post" action="/resellers/{{ r.id }}/regenerate" style="display:inline;" onsubmit="return confirm('Regenerate key for {{ r.name | e }}? Old key stops immediately.')">
                             <button type="submit" class="btn btn-ghost btn-sm">🔄</button>
@@ -74,7 +75,7 @@
                 </select>
             </div>
             <p class="muted" style="font-size:0.8rem;margin-top:0.5rem;">
-                Key prefix: <code>{{ r.api_key_prefix }}...</code> — cannot be viewed, only regenerated.
+                Key prefix: <code>{{ r.api_key_prefix }}...</code> — use 🔑 Reveal in the table to copy it.
             </p>
             <div style="padding:0.75rem;background:var(--bg-input);border-radius:10px;margin-top:0.75rem;">
                 <strong style="font-size:0.85rem;">Balance: <span class="green">${{ "%.2f"|format(r.balance) }}</span></strong>
@@ -92,3 +93,23 @@
 </div>
 {% endfor %}
 {% endblock %}
+
+<script>
+function revealKey(id, btn) {
+    btn.disabled = true;
+    btn.textContent = '…';
+    fetch('/api/admin/key/' + id, {credentials: 'same-origin'})
+        .then(r => r.ok ? r.json() : Promise.reject())
+        .then(d => {
+            navigator.clipboard?.writeText(d.api_key);
+            alert('API Key (copied to clipboard):\\n' + d.api_key);
+            btn.textContent = '🔑 Reveal';
+            btn.disabled = false;
+        })
+        .catch(() => {
+            alert('Failed to reveal key. Are you logged in?');
+            btn.textContent = '🔑 Reveal';
+            btn.disabled = false;
+        });
+}
+</script>

@@ -269,8 +269,10 @@ def admin_approve_application(
     app = db.update_application_status(app_id, "approved")
     if app:
         try:
+            uname = re.sub(r"[^a-zA-Z0-9_]", "", (app.get("email") or app.get("discord") or f"reseller{app_id}").lower().replace(" ", "_"))[:40]
             db.create_reseller(
                 name=name.strip(),
+                username=uname,
                 discount_percent=discount_percent,
                 ip=ip,
                 referred_by_code=app.get("referral_code", ""),
@@ -291,11 +293,11 @@ def admin_reject_application(request: Request, app_id: int):
 # ---------- API key retrieval (post-creation) ----------
 
 @router.get("/api/admin/key/{reseller_id}")
-def get_key_once(reseller_id: int, request: Request):
-    """
-    Retrieve API key ONE TIME after creation/regeneration via a special endpoint.
-    This endpoint is removed after first access by the frontend.
-    """
-    # This is intentionally absent — keys are only shown at creation time.
-    # The frontend displays them via the creation response.
-    raise HTTPException(status_code=410, detail="API key is only shown once at creation time")
+def get_key_reveal(reseller_id: int, request: Request):
+    """Reveal the reseller's API key (password) on demand. Requires admin session."""
+    if not check_ui_auth(request):
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    key = db.reveal_api_key(reseller_id)
+    if key is None:
+        raise HTTPException(status_code=404, detail="Reseller not found")
+    return JSONResponse({"api_key": key})

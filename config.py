@@ -46,6 +46,11 @@ class Settings:
     # Default discount % applied to an approved reseller application
     DEFAULT_APPLICATION_DISCOUNT: float = float(os.getenv("DEFAULT_APPLICATION_DISCOUNT", "30"))
 
+    # ---------- Notifications (new applications) ----------
+    DISCORD_WEBHOOK_URL: str = os.getenv("DISCORD_WEBHOOK_URL", "")
+    NTFY_TOPIC: str = os.getenv("NTFY_TOPIC", "")
+    NTFY_SERVER: str = os.getenv("NTFY_SERVER", "https://ntfy.angelatos.gr")
+
     # ---------- Production ----------
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")

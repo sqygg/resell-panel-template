@@ -49,11 +49,11 @@ def store_login_page(request: Request):
 
 
 @router.post("/login")
-def store_login_action(request: Request, api_key: str = Form(...)):
-    reseller = db.get_reseller_by_key(api_key.strip())
+def store_login_action(request: Request, username: str = Form(...), password: str = Form(...)):
+    reseller = db.get_reseller_by_username_password(username.strip(), password)
     if not reseller:
         return HTMLResponse(
-            "<script>alert('Invalid API key');window.location='/store/login';</script>"
+            "<script>alert('Invalid username or password');window.location='/store/login';</script>"
         )
 
     sid = uuid.uuid4().hex
@@ -61,7 +61,7 @@ def store_login_action(request: Request, api_key: str = Form(...)):
         "id": reseller["id"],
         "name": reseller["name"],
         "discount": reseller["discount_percent"],
-        "api_key": api_key,
+        "api_key": db.reveal_api_key(reseller["id"]) or "",
         "referral_code": reseller.get("referral_code", ""),
     }
     resp = RedirectResponse(url="/store", status_code=303)
@@ -318,7 +318,7 @@ def store_apply_submit(
     referral_code: str = Form(""),
 ):
     try:
-        db.create_application(
+        app = db.create_application(
             email=email,
             discord=discord,
             website=website,
@@ -326,6 +326,8 @@ def store_apply_submit(
             products=products,
             referral_code=referral_code,
         )
+        from services.crypto_notify import notify_new_application
+        notify_new_application(dict(app))
     except ValueError as e:
         return HTMLResponse(f"<script>alert('{e}');history.back();</script>")
     return RedirectResponse(url="/store/apply?done=1", status_code=303)

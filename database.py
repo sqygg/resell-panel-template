@@ -23,11 +23,18 @@ def get_db() -> sqlite3.Connection:
     return conn
 
 
-# ---------- Key hashing ----------
+# ---------- Key storage (encrypted at rest) ----------
 
-def _hash_key(api_key: str) -> str:
-    """SHA-256 hash of the API key. We never store plaintext."""
-    return hashlib.sha256(api_key.encode()).hexdigest()
+def _encrypt_key(api_key: str) -> str:
+    """Encrypt API key for storage. Returns token string."""
+    from services.crypto_notify import encrypt_secret
+    return encrypt_secret(api_key)
+
+
+def _decrypt_key(token: str) -> str:
+    """Decrypt a stored key token. Returns '' on failure."""
+    from services.crypto_notify import decrypt_secret
+    return decrypt_secret(token)
 
 
 def _generate_raw_key() -> str:
@@ -57,6 +64,16 @@ def _validate_webhook_url(url: str) -> str:
     return url
 
 
+def _validate_username(username: str) -> str:
+    username = username.strip().lower()
+    if not username:
+        raise ValueError("Username required")
+    # Allow letters, numbers, underscore, dot
+    if not re.match(r"^[a-z0-9_.]{3,40}$", username):
+        raise ValueError("Username must be 3-40 chars: letters, numbers, _ or .")
+    return username
+
+
 def _validate_discount(pct: float) -> float:
     if not (0 <= pct <= 100):
         raise ValueError("Discount must be between 0 and 100")
@@ -72,7 +89,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS resellers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            api_key_hash TEXT NOT NULL UNIQUE,
+            username TEXT NOT NULL DEFAULT '',
+            api_key_enc TEXT NOT NULL,
             api_key_prefix TEXT NOT NULL,
             discount_percent REAL NOT NULL DEFAULT 0,
             webhook_url TEXT DEFAULT '',
@@ -172,7 +190,6 @@ def init_db():
             FOREIGN KEY (reseller_id) REFERENCES resellers(id)
         );
 
-        CREATE INDEX IF NOT EXISTS idx_resellers_hash ON resellers(api_key_hash);
         CREATE INDEX IF NOT EXISTS idx_webhook_logs_reseller ON webhook_logs(reseller_id);
         CREATE INDEX IF NOT EXISTS idx_login_attempts_ip ON login_attempts(ip_address, created_at);
         CREATE INDEX IF NOT EXISTS idx_audit_log_action ON audit_log(action, created_at);
@@ -192,6 +209,15 @@ def _migrate():
     """Add columns that may be missing on pre-existing databases."""
     conn = get_db()
     existing = {r["name"] for r in conn.execute("PRAGMA table_info(resellers)").fetchall()}
+    if "username" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN username TEXT NOT NULL DEFAULT ''")
+    if "api_key_enc" not in existing and "api_key_hash" in existing:
+        # Add encrypted column, copy nothing (old hashed keys are unrecoverable).
+        conn.execute("ALTER TABLE resellers ADD COLUMN api_key_enc TEXT")
+        conn.execute("UPDATE resellers SET api_key_enc = '' WHERE api_key_enc IS NULL")
+    if "api_key_hash" in existing:
+        # Drop the obsolete hashed column (replaced by encrypted storage).
+        conn.execute("ALTER TABLE resellers DROP COLUMN api_key_hash")
     if "referral_code" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN referral_code TEXT")
     if "referred_by" not in existing:
@@ -204,6 +230,11 @@ def _migrate():
     for r in rows:
         code = _generate_referral_code()
         conn.execute("UPDATE resellers SET referral_code = ? WHERE id = ?", (code, r["id"]))
+    # Backfill username from name if empty
+    rows = conn.execute("SELECT id, name FROM resellers WHERE username IS NULL OR username = ''").fetchall()
+    for r in rows:
+        uname = re.sub(r"[^a-zA-Z0-9_]", "", r["name"].lower().replace(" ", "_"))[:40] or f"user{r['id']}"
+        conn.execute("UPDATE resellers SET username = ? WHERE id = ?", (uname, r["id"]))
     conn.commit()
     conn.close()
 
@@ -249,14 +280,15 @@ def log_login_attempt(ip: str, success: bool):
 
 # ---------- Reseller CRUD ----------
 
-def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "") -> dict:
-    """Create a reseller. Returns the RAW API KEY once — never stored, never retrievable again."""
+def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "", username: str = "") -> dict:
+    """Create a reseller. Returns the RAW API KEY once — stored encrypted, revealable later."""
     name = _validate_name(name)
     discount = _validate_discount(discount_percent)
     webhook = _validate_webhook_url(webhook_url)
+    username = _validate_username(username) if username else _validate_username(name)
 
     raw_key = _generate_raw_key()
-    key_hash = _hash_key(raw_key)
+    key_enc = _encrypt_key(raw_key)
     key_prefix = raw_key[:16]  # for display only
 
     # Resolve referrer (if any) and generate a referral code
@@ -270,13 +302,13 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     conn.execute(
-        """INSERT INTO resellers (name, api_key_hash, api_key_prefix, discount_percent, webhook_url,
+        """INSERT INTO resellers (name, username, api_key_enc, api_key_prefix, discount_percent, webhook_url,
            referral_code, referred_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, key_hash, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, username, key_enc, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
     )
     conn.commit()
-    row = conn.execute("SELECT * FROM resellers WHERE api_key_hash = ?", (key_hash,)).fetchone()
+    row = conn.execute("SELECT * FROM resellers WHERE username = ?", (username,)).fetchone()
     new_id = row["id"] if row else None
     conn.close()
 
@@ -293,40 +325,59 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
 
 
 def get_reseller_by_key(api_key: str) -> dict | None:
-    """Lookup reseller by raw API key. Hash it, search by hash."""
+    """Lookup reseller by raw API key (password). Decrypt stored token, compare."""
     if not api_key or not api_key.startswith("rs_"):
         return None
-    key_hash = _hash_key(api_key)
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM resellers WHERE active = 1"
+    ).fetchall()
+    conn.close()
+    for row in rows:
+        stored = row["api_key_enc"]
+        if stored and _decrypt_key(stored) == api_key:
+            return dict(row)
+    return None
+
+
+def get_reseller_by_username_password(username: str, password: str) -> dict | None:
+    """Login: username + password (password == API key). Returns reseller or None."""
+    if not username or not password:
+        return None
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM resellers WHERE api_key_hash = ? AND active = 1", (key_hash,)
+        "SELECT * FROM resellers WHERE username = ? AND active = 1", (username.strip(),)
     ).fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    stored = row["api_key_enc"]
+    if stored and _decrypt_key(stored) == password:
+        return dict(row)
+    return None
 
 
 def get_reseller_by_id(reseller_id: int) -> dict | None:
-    """Get reseller by ID. NEVER returns the raw API key or hash."""
+    """Get reseller by ID. NEVER returns the raw API key — only prefix."""
     conn = get_db()
     row = conn.execute("SELECT * FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
     conn.close()
     if row:
         d = dict(row)
-        d.pop("api_key_hash", None)
+        d.pop("api_key_enc", None)
         return d
     return None
 
 
 def list_resellers() -> list[dict]:
-    """List all resellers. NEVER returns raw API keys or hashes — only prefixes."""
+    """List all resellers. NEVER returns raw API keys — only prefixes."""
     conn = get_db()
     rows = conn.execute("SELECT * FROM resellers ORDER BY created_at DESC").fetchall()
     conn.close()
     result = []
     for r in rows:
         d = dict(r)
-        # Strip sensitive fields
-        d.pop("api_key_hash", None)
+        d.pop("api_key_enc", None)
         result.append(d)
     return result
 
@@ -363,7 +414,7 @@ def update_reseller(reseller_id: int, ip: str = "", **kwargs) -> dict | None:
 
     result = dict(row) if row else None
     if result:
-        result.pop("api_key_hash", None)
+        result.pop("api_key_enc", None)
     _audit("reseller_updated", reseller_id, f"fields={list(updates.keys())}", ip)
     return result
 
@@ -384,16 +435,16 @@ def delete_reseller(reseller_id: int, ip: str = "") -> bool:
 
 
 def regenerate_api_key(reseller_id: int, ip: str = "") -> dict | None:
-    """Regenerate API key. Returns the NEW raw key once. Old hash is overwritten."""
+    """Regenerate API key. Returns the NEW raw key once. Old key is overwritten."""
     raw_key = _generate_raw_key()
-    key_hash = _hash_key(raw_key)
+    key_enc = _encrypt_key(raw_key)
     key_prefix = raw_key[:16]
     now = datetime.now(timezone.utc).isoformat()
 
     conn = get_db()
     conn.execute(
-        "UPDATE resellers SET api_key_hash = ?, api_key_prefix = ?, updated_at = ? WHERE id = ?",
-        (key_hash, key_prefix, now, reseller_id),
+        "UPDATE resellers SET api_key_enc = ?, api_key_prefix = ?, updated_at = ? WHERE id = ?",
+        (key_enc, key_prefix, now, reseller_id),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
@@ -404,6 +455,16 @@ def regenerate_api_key(reseller_id: int, ip: str = "") -> dict | None:
 
     _audit("reseller_key_rotated", reseller_id, "", ip)
     return result
+
+
+def reveal_api_key(reseller_id: int) -> str | None:
+    """Decrypt and return the raw API key for admin reveal. Returns None if not found."""
+    conn = get_db()
+    row = conn.execute("SELECT api_key_enc FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return _decrypt_key(row["api_key_enc"])
 
 
 def record_webhook_usage(reseller_id: int, endpoint: str, status_code: int, response_time_ms: float, ip: str = ""):
@@ -588,7 +649,7 @@ def get_reseller_by_referral_code(code: str) -> dict | None:
     conn.close()
     if row:
         d = dict(row)
-        d.pop("api_key_hash", None)
+        d.pop("api_key_enc", None)
         return d
     return None
 
