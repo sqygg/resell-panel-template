@@ -51,16 +51,25 @@ def _do_deliver(
     customer_email: str,
     order_id,
     request: Request,
+    alias_owner: int | None = None,
 ):
     start = time.time()
     ip = get_client_ip(request)
 
-    if api_key.lower() in RESERVED:
+    if api_key and api_key.lower() in RESERVED:
         raise HTTPException(status_code=404, detail="Not found")
 
-    reseller = db.get_reseller_by_key(api_key)
-    if not reseller:
-        raise HTTPException(status_code=401, detail="Unauthorized")
+    # Authenticate: alias mode uses the alias owner; key mode looks up by key
+    if alias_owner is not None:
+        reseller = db.get_reseller_by_id(alias_owner)
+        if not reseller or not reseller.get("active"):
+            raise HTTPException(status_code=401, detail="Unauthorized")
+    else:
+        if not api_key:
+            raise HTTPException(status_code=401, detail="Unauthorized")
+        reseller = db.get_reseller_by_key(api_key)
+        if not reseller:
+            raise HTTPException(status_code=401, detail="Unauthorized")
 
     if not (1 <= quantity <= 50):
         raise HTTPException(status_code=400, detail="Quantity must be 1-50")
@@ -175,12 +184,22 @@ def deliver_post(api_key: str, body: DeliveryRequest, request: Request):
 def deliver_get(
     api_key: str,
     request: Request,
-    product_id: str = Query(...),
+    product_id: str = Query(None),
     variant_id: str | int | None = Query(None),
     quantity: int = Query(1),
     customer_email: str = Query(""),
     order_id: str | None = Query(None),
 ):
+    # Alias mode: /api/deliver/{alias}  (product/variant come from the alias, not query)
+    resolved = db.resolve_alias(api_key)
+    if resolved:
+        return _do_deliver(
+            None, resolved["product_id"], resolved["variant_id"], quantity,
+            customer_email, order_id, request, alias_owner=resolved["reseller_id"],
+        )
+    # Not an alias: must be a real API key with product_id
+    if not product_id:
+        raise HTTPException(status_code=401, detail="Unauthorized or missing product_id")
     return _do_deliver(
         api_key, product_id, variant_id, quantity, customer_email, order_id, request,
     )
@@ -207,3 +226,4 @@ def deliver_get_product(
     return _do_deliver(
         api_key, product_id, variant_id, quantity, customer_email, order_id, request,
     )
+

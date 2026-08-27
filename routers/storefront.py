@@ -131,19 +131,45 @@ def reseller_catalog(request: Request):
     r = require_reseller(request)
     products = sellauth.get_products_for_webhook()
     balance_info = db.get_sellauth_balance(r["id"])
+    aliases = db.list_product_aliases(r["id"])
+    alias_map = {(a["product_id"], a["variant_id"]): a["alias"] for a in aliases}
     df = 1 - (r["discount"] / 100)
     base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     for p in products:
         p["reseller_price"] = round(p["price"] * df, 2)
         for v in p.get("variants", []):
             v["reseller_price"] = round(v["price"] * df, 2)
-            if r.get("api_key"):
+            key = (str(p["id"]), str(v.get("variant_id", "")))
+            alias = alias_map.get(key)
+            if alias:
+                v["delivery_url"] = f"{base}/api/deliver/{alias}"
+            elif r.get("api_key"):
                 v["delivery_url"] = f"{base}/api/deliver/{r['api_key']}/product/{p['id']}?variant_id={v['variant_id']}"
             else:
                 v["delivery_url"] = ""
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
         request=request, reseller=r, products=products, balance=balance_info["balance"],
         balance_source=balance_info["source"], sellauth_email=balance_info["email"]))
+
+
+@router.post("/reseller/alias/{product_id}")
+def reseller_alias_create(request: Request, product_id: str, variant_id: str = Form("")):
+    r = require_reseller(request)
+    try:
+        db.create_product_alias(r["id"], product_id, variant_id, ip=get_client_ip(request))
+    except ValueError as e:
+        return HTMLResponse(f"<script>alert('{e}');window.location='/reseller/catalog';</script>")
+    return RedirectResponse(url="/reseller/catalog", status_code=303)
+
+
+@router.post("/reseller/alias/{product_id}/revoke")
+def reseller_alias_revoke(request: Request, product_id: str, variant_id: str = Form("")):
+    r = require_reseller(request)
+    aliases = db.list_product_aliases(r["id"])
+    for a in aliases:
+        if a["product_id"] == product_id and a["variant_id"] == variant_id:
+            db.revoke_product_alias(r["id"], a["alias"], ip=get_client_ip(request))
+    return RedirectResponse(url="/reseller/catalog", status_code=303)
 
 
 @router.get("/reseller/api", response_class=HTMLResponse)

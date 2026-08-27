@@ -31,8 +31,21 @@
               <td class="dim">${{ "%.2f"|format(v.price) }}</td>
               <td><strong>${{ "%.2f"|format(v.reseller_price) }}</strong></td>
               <td>{% if v.stock == -1 %}∞{% else %}{{ v.stock }}{% endif %}</td>
-              <td style="max-width:220px;">
-                {% if v.delivery_url %}<code style="font-size:0.7rem;">{{ v.delivery_url }}</code>{% else %}<span class="dim">—</span>{% endif %}
+              <td style="max-width:260px;">
+                {% if v.delivery_url %}
+                  <code style="font-size:0.7rem;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
+                  <button class="btn btn-ghost btn-sm" style="margin-top:0.3rem;" onclick="copyUrl('du-{{ p.id }}-{{ v.variant_id }}')">Copy</button>
+                  <form method="post" action="/reseller/alias/{{ p.id }}/revoke" style="display:inline;">
+                    <input type="hidden" name="variant_id" value="{{ v.variant_id }}">
+                    <button type="submit" class="btn btn-danger btn-sm" style="margin-top:0.3rem;">Revoke</button>
+                  </form>
+                {% else %}
+                  <span class="dim">—</span>
+                  <form method="post" action="/reseller/alias/{{ p.id }}" style="display:inline;margin-top:0.3rem;">
+                    <input type="hidden" name="variant_id" value="{{ v.variant_id }}">
+                    <button type="submit" class="btn btn-ghost btn-sm">Generate link</button>
+                  </form>
+                {% endif %}
               </td>
               <td>
                 <form method="post" action="/reseller/order/{{ p.id }}" style="display:inline;">
@@ -52,3 +65,7 @@
   </div>
 </div>
 {% endblock %}
+
+<script>
+function copyUrl(id){ const t=document.getElementById(id).textContent; navigator.clipboard?.writeText(t); const b=event.target; b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy',1200); }
+</script>

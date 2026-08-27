@@ -183,6 +183,16 @@ def init_db():
             FOREIGN KEY (reseller_id) REFERENCES resellers(id)
         );
 
+        CREATE TABLE IF NOT EXISTS product_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            reseller_id INTEGER NOT NULL,
+            alias TEXT NOT NULL UNIQUE,
+            product_id TEXT NOT NULL,
+            variant_id TEXT NOT NULL DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            FOREIGN KEY (reseller_id) REFERENCES resellers(id)
+        );
+
         CREATE TABLE IF NOT EXISTS balance_transactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             reseller_id INTEGER NOT NULL,
@@ -589,6 +599,78 @@ def sync_balance_from_sellauth(reseller_id: int, ip: str = "") -> dict:
     conn.close()
     _audit("balance_synced", reseller_id, f"=${bal:.2f} <- SellAuth {email}", ip)
     return {"balance": bal, "email": email, "source": "live"}
+
+
+# ---------- Per-product delivery aliases (blank until generated, revocable) ----------
+
+def create_product_alias(reseller_id: int, product_id: str, variant_id: str = "", ip: str = "") -> dict:
+    """Generate a reseller-unique random alias token for a (product, variant).
+    Returns {'alias': str, 'url': str} or raises ValueError on dup race (retry)."""
+    alias = secrets.token_urlsafe(16)
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    try:
+        conn.execute(
+            "INSERT INTO product_aliases (reseller_id, alias, product_id, variant_id, created_at) "
+            "VALUES (?, ?, ?, ?, ?)",
+            (reseller_id, alias, str(product_id), str(variant_id or ""), now),
+        )
+        conn.commit()
+    except sqlite3.IntegrityError:
+        conn.close()
+        raise ValueError("Alias collision — retry")
+    conn.close()
+    _audit("alias_created", reseller_id, f"{alias} -> p={product_id} v={variant_id}", ip)
+    return {"alias": alias, "product_id": str(product_id), "variant_id": str(variant_id or "")}
+
+
+def revoke_product_alias(reseller_id: int, alias: str, ip: str = "") -> None:
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM product_aliases WHERE reseller_id = ? AND alias = ?",
+        (reseller_id, alias),
+    )
+    conn.commit()
+    conn.close()
+    _audit("alias_revoked", reseller_id, f"{alias}", ip)
+
+
+def get_alias(reseller_id: int, alias: str) -> dict | None:
+    """Look up one alias owned by this reseller. Returns {product_id, variant_id} or None."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT product_id, variant_id FROM product_aliases WHERE reseller_id = ? AND alias = ?",
+        (reseller_id, alias),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {"product_id": row["product_id"], "variant_id": row["variant_id"]}
+
+
+def list_product_aliases(reseller_id: int) -> list[dict]:
+    """All aliases owned by this reseller: [{alias, product_id, variant_id}]."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT alias, product_id, variant_id FROM product_aliases WHERE reseller_id = ?",
+        (reseller_id,),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def resolve_alias(alias: str) -> dict | None:
+    """Public lookup by alias token only (no reseller_id needed) -> {reseller_id, product_id, variant_id}."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT reseller_id, product_id, variant_id FROM product_aliases WHERE alias = ?",
+        (alias,),
+    ).fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {"reseller_id": row["reseller_id"], "product_id": row["product_id"], "variant_id": row["variant_id"]}
+
 
 
 def record_webhook_usage(reseller_id: int, endpoint: str, status_code: int, response_time_ms: float, ip: str = ""):
