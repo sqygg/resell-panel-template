@@ -49,6 +49,12 @@
     }
     .drawer a.link:hover { background: rgba(255,255,255,.06); color: #fff; }
     .drawer .divider { height: 1px; background: var(--border); margin: 0.5rem 0; }
+    /* Copy button checkmark animation */
+    .copy-btn.copied { color: var(--green); border-color: rgba(124,255,176,.4); }
+    .copy-btn .tick { display: inline-block; transform: scale(0); transition: transform .25s cubic-bezier(.2,1.4,.5,1); }
+    .copy-btn.copied .tick { transform: scale(1); }
+    .copy-btn .lbl { transition: opacity .15s; }
+    .copy-btn.copied .lbl { opacity: 0; position: absolute; }
   </style>
   {% block head %}{% endblock %}
 </head>

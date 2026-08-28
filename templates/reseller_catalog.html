@@ -34,7 +34,7 @@
               <td style="max-width:260px;">
                 {% if v.delivery_url %}
                   <code style="font-size:0.7rem;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
-                  <button class="btn btn-ghost btn-sm" style="margin-top:0.3rem;" onclick="copyUrl('du-{{ p.id }}-{{ v.variant_id }}', this)">Copy</button>
+                  <button class="btn btn-ghost btn-sm copy-btn" style="margin-top:0.3rem;position:relative;" onclick="copyUrl('du-{{ p.id }}-{{ v.variant_id }}', this)"><span class="lbl">Copy</span><span class="tick">✓</span></button>
                   <form method="post" action="/reseller/alias/{{ p.id }}/revoke" style="display:inline;">
                     <input type="hidden" name="variant_id" value="{{ v.variant_id }}">
                     <button type="submit" class="btn btn-danger btn-sm" style="margin-top:0.3rem;">Revoke</button>
@@ -57,25 +57,43 @@
     {% if not products %}<p class="muted">No products configured. Set SELLAUTH_API_KEY + SELLAUTH_SHOP_ID in Railway.</p>{% endif %}
   </div>
 </div>
-{% endblock %}
 
 <script>
+function copyText(text){
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+  }
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text){
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.top = '-9999px';
+    ta.setAttribute('readonly', '');
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    return ok;
+  } catch (e) { return false; }
+}
 function copyUrl(id, btn){
   const el = document.getElementById(id);
-  if (!el) return;
-  const text = el.textContent;
-  const done = (b) => { if (b) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy', 1200); } };
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text).then(() => done(btn)).catch(() => fallbackCopy(el, btn));
-  } else {
-    fallbackCopy(el, btn);
-  }
-}
-function fallbackCopy(el, btn){
-  const r = document.createRange(); r.selectNodeContents(el);
-  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
-  try { document.execCommand('copy'); } catch(e) {}
-  s.removeAllRanges();
-  if (btn) { const old = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200); }
+  if (!el || !btn) return;
+  const text = el.textContent.trim();
+  const label = btn.querySelector('.lbl');
+  copyText(text).then((ok) => {
+    if (!ok) return;
+    btn.classList.add('copied');
+    if (label) label.textContent = '';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      if (label) label.textContent = 'Copy';
+    }, 1400);
+  });
 }
 </script>
+{% endblock %}
