@@ -1,8 +1,8 @@
 /* reseller-panel → SellAuth (pro) BLOG embed — append to VOID theme */
-.reseller-portal-holder { width: 100%; margin: 2rem auto 3rem; display: flex; flex-direction: column; align-items: center; gap: .75rem; }
-.reseller-portal-bar { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.reseller-portal-holder { width: 100%; min-height: calc(100vh - 4rem); margin: 2rem auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .75rem; }
+.reseller-portal-bar { width: 100%; max-width: 1600px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .reseller-portal-title { color: #ffffff; font-weight: 700; font-size: 1.05rem; letter-spacing: .02em; font-family: 'Space Grotesk', sans-serif; text-shadow: 0 0 12px rgba(255,255,255,0.4); }
 .reseller-portal-open { color: #050507 !important; background: #ffffff; padding: .35rem .7rem; border-radius: 8px; font-weight: 600; font-size: .85rem; text-decoration: none !important; white-space: nowrap; box-shadow: 0 0 18px rgba(255,255,255,0.28); }
 .reseller-portal-open:hover { box-shadow: 0 0 34px rgba(255,255,255,0.55); }
-.reseller-portal-frame { width: 100%; max-width: 1100px; margin: 0 auto; min-height: 70vh; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; background: #0c0c10; }
+.reseller-portal-frame { width: 100%; max-width: 1600px; margin: 0 auto; min-height: 70vh; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; background: #0c0c10; }
 @media (max-width: 767px) { .reseller-portal-frame { min-height: 65vh; } }
