@@ -7,41 +7,40 @@
   <link rel="stylesheet" href="/static/void.css">
   <style>
     .navbar { justify-content: flex-start; }
-    .dropdown { position: relative; display: flex; align-items: center; gap: .5rem; }
     .brand-btn {
       cursor: pointer; background: none; border: none; font: inherit;
       padding: 0; border-radius: 9px; line-height: 0; display: inline-flex;
     }
     .brand-text { font-size: 1.25rem; font-weight: 700; letter-spacing: .03em; line-height: 1; }
-    .dropdown-menu {
-      position: absolute; top: calc(100% + .85rem); left: 0; right: auto;
-      min-width: 250px; background: #0b0e14; border: 1px solid var(--border-strong);
-      border-radius: 14px; padding: .85rem; display: none; flex-direction: column;
-      z-index: 100; box-shadow: 0 20px 50px rgba(0,0,0,.6);
+    /* YouTube-style left drawer */
+    .drawer-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 200;
+      opacity: 0; visibility: hidden; transition: opacity .2s;
     }
-    .dropdown-menu::before {
-      content: ""; position: absolute; top: -7px; left: 16px;
-      width: 14px; height: 14px; background: #0b0e14;
-      border-left: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong);
-      transform: rotate(45deg);
+    body.drawer-open .drawer-backdrop { opacity: 1; visibility: visible; }
+    .drawer {
+      position: fixed; top: 0; left: 0; bottom: 0; width: 260px; z-index: 201;
+      background: #0b0e14; border-right: 1px solid var(--border-strong);
+      transform: translateX(-100%); transition: transform .22s ease;
+      display: flex; flex-direction: column; padding: 1.1rem .85rem; overflow-y: auto;
     }
-    .dropdown.open .dropdown-menu { display: flex; }
-    .dropdown-menu .menu-header {
-      display: flex; align-items: center; gap: .65rem; padding: .15rem .25rem .8rem;
+    body.drawer-open .drawer { transform: translateX(0); }
+    .drawer .menu-header {
+      display: flex; align-items: center; gap: .7rem; padding: .25rem .35rem 1rem;
     }
-    .dropdown-menu .menu-header img { width: 42px; height: 42px; border-radius: 10px; }
-    .dropdown-menu .menu-header .m-name { font-size: 1rem; font-weight: 700; color: #fff; }
-    .dropdown-menu .menu-header .m-sub { font-size: .78rem; color: var(--text-faint); }
-    .dropdown-menu .menu-label {
+    .drawer .menu-header img { width: 44px; height: 44px; border-radius: 10px; }
+    .drawer .menu-header .m-name { font-size: 1.05rem; font-weight: 700; color: #fff; }
+    .drawer .menu-header .m-sub { font-size: .78rem; color: var(--text-faint); }
+    .drawer .menu-label {
       font-size: 0.68rem; text-transform: uppercase; letter-spacing: .07em;
-      color: #6b7890; padding: 0.5rem 0.75rem 0.25rem; font-weight: 600;
+      color: #6b7890; padding: 0.7rem 0.75rem 0.3rem; font-weight: 600;
     }
-    .dropdown-menu a {
-      padding: 0.6rem 0.75rem; border-radius: 8px; font-size: 0.9rem;
-      color: var(--text-dim); font-weight: 500;
+    .drawer a.link {
+      padding: 0.7rem 0.75rem; border-radius: 10px; font-size: 0.95rem;
+      color: var(--text-dim); font-weight: 500; display: block;
     }
-    .dropdown-menu a:hover { background: rgba(255,255,255,.06); color: #fff; text-shadow: none; }
-    .dropdown-menu .divider { height: 1px; background: var(--border); margin: 0.4rem 0; }
+    .drawer a.link:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .drawer .divider { height: 1px; background: var(--border); margin: 0.5rem 0; }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -60,42 +59,42 @@
 
   {% if reseller_logged_in or admin_authed %}
   <nav class="navbar">
-    <div class="dropdown" id="brandDropdown">
-      <button class="brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <img src="/static/logo.png" alt="Astro" class="brand-logo">
-      </button>
-      <span class="brand-text">ASTRO</span>
-      <div class="dropdown-menu">
-        <div class="menu-header">
-          <img src="/static/logo.png" alt="Astro">
-          <div>
-            <div class="m-name">Astro Panel</div>
-            <div class="m-sub">{% if reseller_logged_in %}Reseller account{% else %}Owner account{% endif %}</div>
-          </div>
-        </div>
-        {% if reseller_logged_in %}
-          <div class="menu-label">Reseller</div>
-          <a href="/reseller">Home</a>
-          <a href="/reseller/balance">Balance</a>
-          <a href="/reseller/buy">Buy Keys</a>
-          <a href="/reseller/catalog">Api Integration</a>
-          <a href="/reseller/referrals">Referrals</a>
-          <a href="/reseller/api">Settings</a>
-          <div class="divider"></div>
-          <a href="/logout">Sign out</a>
-        {% elif admin_authed %}
-          <div class="menu-label">Admin</div>
-          <a href="/admin">Home</a>
-          <a href="/resellers">Resellers</a>
-          <a href="/stock">Stock</a>
-          <a href="/admin/orders">Orders</a>
-          <a href="/admin/applications">Applications</a>
-          <div class="divider"></div>
-          <a href="/logout">Sign out</a>
-        {% endif %}
+    <button class="brand-btn" id="brandToggle" type="button" aria-haspopup="true" aria-expanded="false">
+      <img src="/static/logo.png" alt="Astro" class="brand-logo">
+    </button>
+    <span class="brand-text">ASTRO</span>
+  </nav>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer" aria-label="Menu">
+    <div class="menu-header">
+      <img src="/static/logo.png" alt="Astro">
+      <div>
+        <div class="m-name">Astro Panel</div>
+        <div class="m-sub">{% if reseller_logged_in %}Reseller account{% else %}Owner account{% endif %}</div>
       </div>
     </div>
-  </nav>
+    {% if reseller_logged_in %}
+      <div class="menu-label">Reseller</div>
+      <a href="/reseller" class="link">Home</a>
+      <a href="/reseller/balance" class="link">Balance</a>
+      <a href="/reseller/buy" class="link">Buy Keys</a>
+      <a href="/reseller/catalog" class="link">Api Integration</a>
+      <a href="/reseller/referrals" class="link">Referrals</a>
+      <a href="/reseller/api" class="link">Settings</a>
+      <div class="divider"></div>
+      <a href="/logout" class="link">Sign out</a>
+    {% elif admin_authed %}
+      <div class="menu-label">Admin</div>
+      <a href="/admin" class="link">Home</a>
+      <a href="/resellers" class="link">Resellers</a>
+      <a href="/stock" class="link">Stock</a>
+      <a href="/admin/orders" class="link">Orders</a>
+      <a href="/admin/applications" class="link">Applications</a>
+      <div class="divider"></div>
+      <a href="/logout" class="link">Sign out</a>
+    {% endif %}
+  </aside>
   {% endif %}
 
   {% block content %}{% endblock %}
@@ -107,23 +106,21 @@
 
   <script>
     (function () {
-      var dd = document.getElementById('brandDropdown');
-      if (!dd) return;
-      var btn = dd.querySelector('.brand-btn');
-      dd.addEventListener('click', function (e) {
-        if (dd.contains(e.target)) {
-          var open = dd.classList.toggle('open');
-          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        } else {
-          dd.classList.remove('open');
-          btn.setAttribute('aria-expanded', 'false');
-        }
+      var toggle = document.getElementById('brandToggle');
+      var backdrop = document.getElementById('drawerBackdrop');
+      if (!toggle || !backdrop) return;
+      function setOpen(open) {
+        document.body.classList.toggle('drawer-open', open);
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+      }
+      toggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setOpen(!document.body.classList.contains('drawer-open'));
       });
-      document.addEventListener('click', function (e) {
-        if (!dd.contains(e.target)) {
-          dd.classList.remove('open');
-          btn.setAttribute('aria-expanded', 'false');
-        }
+      backdrop.addEventListener('click', function () { setOpen(false); });
+      document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setOpen(false); });
+      document.querySelectorAll('.drawer a.link').forEach(function (a) {
+        a.addEventListener('click', function () { setOpen(false); });
       });
     })();
   </script>
