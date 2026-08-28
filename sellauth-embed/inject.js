@@ -1,7 +1,8 @@
 /* ============================================================
    reseller-panel → SellAuth BLOG embed (pro theme)
    Mounts the panel (hosted on Railway) into the FREE /blog page
-   via iframe. custom.js runs site-wide for free, so we gate on
+   via iframe, placed BELOW the site nav (full width, centered).
+   custom.js runs site-wide for free, so we gate on
    pathname === "/blog". No paid custom-page plan needed.
    ------------------------------------------------------------
    CONFIG — set this:
@@ -22,17 +23,15 @@
 
   function mount() {
     if (!onBlog()) return true;
-    if (document.getElementById("reseller-panel-frame")) return true;
-    const heading = Array.from(document.querySelectorAll("h1, h2, h3"))
-      .find(h => /blog/i.test(h.textContent || ""));
-    const mountPoint = (heading && heading.parentElement) ||
-      document.querySelector("main .container") ||
-      document.querySelector(".container") || document.body;
+    if (document.getElementById("reseller-portal-holder")) return true;
+
+    // Hide the "No Blog Posts Yet." placeholder
     const noPosts = Array.from(document.querySelectorAll("p"))
       .find(p => /no blog posts yet/i.test(p.textContent || ""));
     if (noPosts) noPosts.style.display = "none";
 
     const holder = document.createElement("div");
+    holder.id = "reseller-portal-holder";
     holder.className = "reseller-portal-holder";
     holder.innerHTML =
       '<div class="reseller-portal-bar">' +
@@ -42,7 +41,13 @@
         '</div>' +
         '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/" ' +
       'title="' + LABEL + '"></iframe>';
-    mountPoint.appendChild(holder);
+
+    // Mount directly BELOW the site nav so it spans full width (not a sidebar column)
+    const header = document.querySelector("header") ||
+                   document.querySelector("nav") ||
+                   document.querySelector(".navbar");
+    if (header) header.insertAdjacentElement("afterend", holder);
+    else document.body.appendChild(holder);
     return true;
   }
 
