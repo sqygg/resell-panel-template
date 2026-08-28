@@ -7,31 +7,41 @@
   <link rel="stylesheet" href="/static/void.css">
   <style>
     .navbar { justify-content: flex-start; }
-    .dropdown { position: relative; }
+    .dropdown { position: relative; display: flex; align-items: center; gap: .5rem; }
     .brand-btn {
       cursor: pointer; background: none; border: none; font: inherit;
-      padding: 0; border-radius: 9px; line-height: 0;
+      padding: 0; border-radius: 9px; line-height: 0; display: inline-flex;
     }
-    .brand-text { font-size: 1.25rem; font-weight: 700; }
-    .caret { font-size: 0.7rem; transition: transform .2s; opacity: .8; }
-    .dropdown.open .caret { transform: rotate(180deg); }
+    .brand-text { font-size: 1.25rem; font-weight: 700; letter-spacing: .03em; line-height: 1; }
     .dropdown-menu {
-      position: absolute; top: calc(100% + 0.4rem); left: 0; right: auto;
-      min-width: 210px; background: #0b0e14; border: 1px solid var(--border);
-      border-radius: 12px; padding: 0.4rem; display: none; flex-direction: column;
-      z-index: 100; box-shadow: 0 16px 40px rgba(0,0,0,.55);
+      position: absolute; top: calc(100% + .85rem); left: 0; right: auto;
+      min-width: 250px; background: #0b0e14; border: 1px solid var(--border-strong);
+      border-radius: 14px; padding: .85rem; display: none; flex-direction: column;
+      z-index: 100; box-shadow: 0 20px 50px rgba(0,0,0,.6);
+    }
+    .dropdown-menu::before {
+      content: ""; position: absolute; top: -7px; left: 16px;
+      width: 14px; height: 14px; background: #0b0e14;
+      border-left: 1px solid var(--border-strong); border-top: 1px solid var(--border-strong);
+      transform: rotate(45deg);
     }
     .dropdown.open .dropdown-menu { display: flex; }
+    .dropdown-menu .menu-header {
+      display: flex; align-items: center; gap: .65rem; padding: .15rem .25rem .8rem;
+    }
+    .dropdown-menu .menu-header img { width: 42px; height: 42px; border-radius: 10px; }
+    .dropdown-menu .menu-header .m-name { font-size: 1rem; font-weight: 700; color: #fff; }
+    .dropdown-menu .menu-header .m-sub { font-size: .78rem; color: var(--text-faint); }
     .dropdown-menu .menu-label {
       font-size: 0.68rem; text-transform: uppercase; letter-spacing: .07em;
-      color: #6b7890; padding: 0.45rem 0.75rem 0.25rem; font-weight: 600;
+      color: #6b7890; padding: 0.5rem 0.75rem 0.25rem; font-weight: 600;
     }
     .dropdown-menu a {
-      padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.9rem;
+      padding: 0.6rem 0.75rem; border-radius: 8px; font-size: 0.9rem;
       color: var(--text-dim); font-weight: 500;
     }
     .dropdown-menu a:hover { background: rgba(255,255,255,.06); color: #fff; text-shadow: none; }
-    .dropdown-menu .divider { height: 1px; background: var(--border); margin: 0.35rem 0; }
+    .dropdown-menu .divider { height: 1px; background: var(--border); margin: 0.4rem 0; }
   </style>
   {% block head %}{% endblock %}
 </head>
@@ -56,6 +66,13 @@
       </button>
       <span class="brand-text">ASTRO</span>
       <div class="dropdown-menu">
+        <div class="menu-header">
+          <img src="/static/logo.png" alt="Astro">
+          <div>
+            <div class="m-name">Astro Panel</div>
+            <div class="m-sub">{% if reseller_logged_in %}Reseller account{% else %}Owner account{% endif %}</div>
+          </div>
+        </div>
         {% if reseller_logged_in %}
           <div class="menu-label">Reseller</div>
           <a href="/reseller">Home</a>
