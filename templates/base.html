@@ -38,10 +38,10 @@
 </head>
 <body>
   {% set path = request.url.path %}
-  {% if path.startswith('/reseller') or path.startswith('/auth') or path.startswith('/apply') %}
-    {% set realm = 'reseller' %}
-  {% elif path.startswith('/admin') or path.startswith('/login') or path.startswith('/resellers') or path.startswith('/stock') %}
+  {% if path.startswith('/resellers') or path.startswith('/admin') or path.startswith('/login') or path.startswith('/stock') %}
     {% set realm = 'admin' %}
+  {% elif path.startswith('/reseller') or path.startswith('/auth') or path.startswith('/apply') %}
+    {% set realm = 'reseller' %}
   {% else %}
     {% set realm = 'none' %}
   {% endif %}
