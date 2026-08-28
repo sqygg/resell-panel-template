@@ -96,6 +96,13 @@ def apply_submit(
     products: str = Form(""),
     referral_code: str = Form(""),
 ):
+    email = email.strip()
+    discord = discord.strip()
+    website = website.strip()
+    if not discord:
+        return templates.TemplateResponse("apply.html", _brand_ctx(request=request, error="Discord is required.", ref=referral_code))
+    if not website:
+        return templates.TemplateResponse("apply.html", _brand_ctx(request=request, error="Website is required.", ref=referral_code))
     try:
         app = db.create_application(
             email=email, discord=discord, website=website,
