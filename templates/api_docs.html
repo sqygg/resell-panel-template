@@ -1,40 +1,21 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>API Docs — Reseller Panel</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root{--bg:#0b1018;--bg-card:#121a26;--border:rgba(255,255,255,.08);--border-soft:rgba(255,255,255,.06);--text:#dee2e6;--heading:#fff;--muted:#c7d2e4;--dim:#8b9ab5;--accent:#7c5cff;--gradient:linear-gradient(135deg,#4f7cff,#7c5cff);}
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding:2.5rem 1.5rem;}
-        .wrap{max-width:860px;margin:0 auto;}
-        h1{font-size:2rem;font-weight:800;color:var(--heading);margin-bottom:.5rem;}
-        h2{font-size:1.3rem;font-weight:700;color:var(--heading);margin:2rem 0 .75rem;}
-        p{color:var(--muted);margin-bottom:.75rem;}
-        code{font-family:'JetBrains Mono',monospace;background:rgba(255,255,255,.07);padding:.15rem .4rem;border-radius:6px;font-size:.85rem;color:var(--accent);}
-        pre{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:12px;padding:1.1rem;overflow-x:auto;margin:.5rem 0 1rem;font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--text);line-height:1.5;}
-        .label{display:inline-block;padding:.2rem .6rem;border-radius:6px;font-size:.72rem;font-weight:700;margin-right:.5rem;}
-        .post{background:rgba(34,197,94,.14);color:var(--green,#22c55e);}
-        .get{background:rgba(79,124,255,.16);color:#7aa2ff;}
-        .note{background:rgba(124,92,255,.1);border-left:3px solid var(--accent);padding:.75rem 1rem;border-radius:8px;margin:1rem 0;color:var(--muted);font-size:.9rem;}
-        a{color:var(--accent);}
-    </style>
-</head>
-<body>
-<div class="wrap">
+{% extends "base.html" %}
+{% block title %}Api Docs · Astro Panel{% endblock %}
+{% block content %}
+<div class="page"><div class="container">
+  <div class="page-head"><div>
     <h1>Reseller API</h1>
-    <p>Authenticate with your reseller password (issued by the owner). All responses are JSON.</p>
+    <p class="muted">Authenticate with your reseller password (issued by the owner). All responses are JSON.</p>
+  </div></div>
 
-    <h2><span class="label get">GET</span> List products (discount applied)</h2>
+  <div class="card" style="padding:1.5rem;margin-bottom:1.25rem;">
+    <h2 style="margin-top:0;">List products (discount applied)</h2>
     <pre>GET /api/webhook/{API_KEY}?page=1&amp;per_page=50</pre>
-    <p>Returns your catalog with your discount already applied to every price.</p>
+    <p class="muted">Returns your catalog with your discount already applied to every price.</p>
 
-    <h2><span class="label get">GET</span> Single product</h2>
+    <h2>Single product</h2>
     <pre>GET /api/webhook/{API_KEY}/product/{PRODUCT_ID}</pre>
 
-    <h2><span class="label post">POST</span> Deliver keys (API delivery)</h2>
+    <h2>Deliver keys (API delivery)</h2>
     <pre>POST /api/deliver/{API_KEY}
 Content-Type: application/json
 
@@ -46,9 +27,9 @@ Content-Type: application/json
   "order_id": "your-ref-001" // optional, your own reference
 }</pre>
     <div class="note">
-        Dispenses real keys/serials from the owner's SellAuth stock and returns them in <code>keys[]</code>.
-        If you configured a webhook URL, the keys are also POSTed to it as JSON <code>{event:"delivery", keys:[...], ...}</code>.
-        The order is recorded and referral commission credited automatically.
+      Dispenses real keys/serials from the owner's SellAuth stock and returns them in <code>keys[]</code>.
+      If you configured a webhook URL, the keys are also POSTed to it as JSON <code>{event:"delivery", keys:[...], ...}</code>.
+      The order is recorded and referral commission credited automatically.
     </div>
 
     <h2>Example (curl)</h2>
@@ -66,8 +47,8 @@ Content-Type: application/json
   "keys": ["KEY-AAAA-1111-XXXX"],
   "webhook_status": 200
 }</pre>
+  </div>
 
-    <p style="margin-top:2rem;color:var(--dim);font-size:.85rem;">Need a key? Ask the owner or apply at <a href="/apply">/apply</a>.</p>
-</div>
-</body>
-</html>
+  <p class="muted" style="font-size:.85rem;">Need a key? Ask the owner or apply at <a href="/apply">/apply</a>.</p>
+</div></div>
+{% endblock %}

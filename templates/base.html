@@ -74,13 +74,13 @@
   {% if reseller_logged_in or admin_authed %}
   <nav class="navbar">
     <div class="brand-block">
+      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
       <button class="brand-btn" id="brandToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Open menu">
         <img src="/static/logo.png" alt="Astro" class="brand-logo">
       </button>
       <span class="brand-text">ASTRO</span>
-      <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open menu">
-        <span></span><span></span><span></span>
-      </button>
     </div>
   </nav>
 
@@ -99,6 +99,7 @@
       <a href="/reseller/balance" class="link">Balance</a>
       <a href="/reseller/buy" class="link">Buy Keys</a>
       <a href="/reseller/catalog" class="link">Api Integration</a>
+      <a href="/api-docs" class="link">Api Docs</a>
       <a href="/reseller/referrals" class="link">Referrals</a>
       <a href="/reseller/api" class="link">Settings</a>
       <div class="divider"></div>
