@@ -6,8 +6,8 @@
   <title>{% block title %}Astro Reseller Panel{% endblock %}</title>
   <link rel="stylesheet" href="/static/void.css">
   <style>
-    .navbar { justify-content: flex-end; }
-    .dropdown { position: relative; margin-left: auto; }
+    .navbar { justify-content: flex-start; }
+    .dropdown { position: relative; }
     .brand-btn {
       cursor: pointer; background: none; border: none; font: inherit;
       display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem;
@@ -17,7 +17,7 @@
     .caret { font-size: 0.7rem; transition: transform .2s; opacity: .8; }
     .dropdown.open .caret { transform: rotate(180deg); }
     .dropdown-menu {
-      position: absolute; top: calc(100% + 0.4rem); right: 0; left: auto;
+      position: absolute; top: calc(100% + 0.4rem); left: 0; right: auto;
       min-width: 210px; background: #0b0e14; border: 1px solid var(--border);
       border-radius: 12px; padding: 0.4rem; display: none; flex-direction: column;
       z-index: 100; box-shadow: 0 16px 40px rgba(0,0,0,.55);
@@ -46,13 +46,17 @@
     {% set realm = 'none' %}
   {% endif %}
 
+  {% set reseller_logged_in = reseller is defined and reseller %}
+  {% set admin_authed = realm == 'admin' and path != '/login' %}
+
+  {% if reseller_logged_in or admin_authed %}
   <nav class="navbar">
     <div class="dropdown" id="brandDropdown">
       <button class="brand brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
         <span class="logo">Ξ</span> ASTRO <span class="caret">▾</span>
       </button>
       <div class="dropdown-menu">
-        {% if realm == 'reseller' %}
+        {% if reseller_logged_in %}
           <div class="menu-label">Reseller</div>
           <a href="/reseller">Home</a>
           <a href="/reseller/balance">Balance</a>
@@ -61,8 +65,8 @@
           <a href="/reseller/referrals">Referrals</a>
           <a href="/reseller/api">Settings</a>
           <div class="divider"></div>
-          {% if session_name %}<a href="/logout">Sign out ({{ session_name }})</a>{% else %}<a href="/auth">Sign in</a>{% endif %}
-        {% elif realm == 'admin' %}
+          <a href="/logout">Sign out</a>
+        {% elif admin_authed %}
           <div class="menu-label">Admin</div>
           <a href="/admin">Home</a>
           <a href="/resellers">Resellers</a>
@@ -70,15 +74,12 @@
           <a href="/admin/orders">Orders</a>
           <a href="/admin/applications">Applications</a>
           <div class="divider"></div>
-          {% if session_name %}<a href="/logout">Sign out ({{ session_name }})</a>{% else %}<a href="/login">Sign in</a>{% endif %}
-        {% else %}
-          <div class="menu-label">Astro</div>
-          <a href="/auth">Reseller Panel</a>
-          <a href="/login">Admin Panel</a>
+          <a href="/logout">Sign out</a>
         {% endif %}
       </div>
     </div>
   </nav>
+  {% endif %}
 
   {% block content %}{% endblock %}
 
