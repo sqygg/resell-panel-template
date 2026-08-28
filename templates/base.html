@@ -52,9 +52,9 @@
   <nav class="navbar">
     <div class="dropdown" id="brandDropdown">
       <button class="brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="logo">Ξ</span>
+        <img src="/static/logo.png" alt="Astro" class="brand-logo">
       </button>
-      <span class="brand-text">ASTRO <span class="caret">▾</span></span>
+      <span class="brand-text">ASTRO</span>
       <div class="dropdown-menu">
         {% if reseller_logged_in %}
           <div class="menu-label">Reseller</div>
@@ -84,7 +84,7 @@
   {% block content %}{% endblock %}
 
   <footer>
-    <p>Ξ ASTRO — Your reliable partner in gaming solutions.</p>
+    <p>ASTRO — Your reliable partner in gaming solutions.</p>
     <p>© 2026 Astro. All rights reserved.{% if deploy_sha %} <span class="dim">· build {{ deploy_sha[:7] }}</span>{% endif %}</p>
   </footer>
 
