@@ -71,7 +71,6 @@
   {% set reseller_logged_in = reseller is defined and reseller %}
   {% set admin_authed = realm == 'admin' and path != '/login' %}
 
-  {% if reseller_logged_in or admin_authed %}
   <nav class="navbar">
     <div class="brand-block">
       <button class="menu-toggle" id="menuToggle" type="button" aria-label="Open menu">
@@ -90,7 +89,7 @@
       <img src="/static/logo.png" alt="Astro">
       <div>
         <div class="m-name">Astro Panel</div>
-        <div class="m-sub">{% if reseller_logged_in %}Reseller account{% else %}Owner account{% endif %}</div>
+        <div class="m-sub">{% if reseller_logged_in %}Reseller account{% elif admin_authed %}Owner account{% else %}Public{% endif %}</div>
       </div>
     </div>
     {% if reseller_logged_in %}
@@ -113,9 +112,14 @@
       <a href="/admin/applications" class="link">Applications</a>
       <div class="divider"></div>
       <a href="/logout" class="link">Sign out</a>
+    {% else %}
+      <div class="menu-label">Menu</div>
+      <a href="/" class="link">Home</a>
+      <a href="/api-docs" class="link">Api Docs</a>
+      <a href="/apply" class="link">Apply to Resell</a>
+      <a href="/auth" class="link">Reseller Dashboard</a>
     {% endif %}
   </aside>
-  {% endif %}
 
   {% block content %}{% endblock %}
 
