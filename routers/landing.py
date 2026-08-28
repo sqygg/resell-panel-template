@@ -24,3 +24,14 @@ def landing(request: Request):
 def api_docs(request: Request):
     """Reseller API documentation (public)."""
     return templates.TemplateResponse("api_docs.html", {"request": request})
+
+
+@router.get("/block", response_class=HTMLResponse)
+def block_landing(request: Request):
+    """Alias of the main landing page, served at /block."""
+    from config import settings
+    return templates.TemplateResponse("landing.html", {
+        "request": request,
+        "brand_name": settings.BRAND_NAME,
+        "brand_tagline": settings.BRAND_TAGLINE,
+    })
