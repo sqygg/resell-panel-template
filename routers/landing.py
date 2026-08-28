@@ -26,8 +26,12 @@ def api_docs(request: Request):
     return templates.TemplateResponse("api_docs.html", {"request": request})
 
 
-@router.get("/block")
-def block_landing():
-    """Redirect to the SellAuth blog page."""
-    from fastapi.responses import RedirectResponse
-    return RedirectResponse("https://astr0.mysellauth.com/blog", status_code=302)
+@router.get("/block", response_class=HTMLResponse)
+def block_landing(request: Request):
+    """Alias of the main landing page, served at /block."""
+    from config import settings
+    return templates.TemplateResponse("landing.html", {
+        "request": request,
+        "brand_name": settings.BRAND_NAME,
+        "brand_tagline": settings.BRAND_TAGLINE,
+    })

@@ -40,7 +40,7 @@
         '<a class="reseller-portal-open" href="' + PANEL_URL + '/auth" ' +
         'target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>' +
         '</div>' +
-        '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/auth" ' +
+        '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/" ' +
       'title="' + LABEL + '"></iframe>';
     mountPoint.appendChild(holder);
     return true;
