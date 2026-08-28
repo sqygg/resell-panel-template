@@ -130,6 +130,7 @@ def _do_deliver(
         price_per_unit=unit,
         total_price=total,
         customer_email=customer_email or "",
+        channel="webhook",
     )
     try:
         db.deduct_balance(

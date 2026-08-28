@@ -244,6 +244,8 @@ def _migrate():
         conn.execute("ALTER TABLE resellers ADD COLUMN referral_code TEXT")
     if "referred_by" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN referred_by INTEGER")
+    if "channel" not in [c[1] for c in conn.execute("PRAGMA table_info(orders)").fetchall()]:
+        conn.execute("ALTER TABLE orders ADD COLUMN channel TEXT NOT NULL DEFAULT 'manual'")
     conn.commit()
     conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_resellers_referral_code ON resellers(referral_code)")
     conn.commit()
@@ -776,16 +778,17 @@ def create_order(
     deliverable: str = "",
     sellauth_invoice_id: int | None = None,
     sellauth_invoice_url: str = "",
+    channel: str = "manual",
 ) -> dict:
     conn = get_db()
     conn.execute(
         """INSERT INTO orders (reseller_id, product_id, product_name, variant_name, quantity,
            price_per_unit, total_price, customer_email, deliverable, sellauth_invoice_id,
-           sellauth_invoice_url, status)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
+           sellauth_invoice_url, channel, status)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')""",
         (reseller_id, product_id, product_name, variant_name, quantity,
          price_per_unit, total_price, customer_email, deliverable,
-         sellauth_invoice_id, sellauth_invoice_url),
+         sellauth_invoice_id, sellauth_invoice_url, channel),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM orders WHERE rowid = last_insert_rowid()").fetchone()
@@ -803,6 +806,19 @@ def update_order_status(order_id: int, status: str, deliverable: str = "") -> di
     row = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     conn.close()
     return dict(row) if row else None
+
+
+def get_reseller_manual_orders(reseller_id: int, limit: int = 50) -> list[dict]:
+    """Manual (panel Buy Keys / catalog) orders only — webhook deliveries excluded, since those
+    push the key to the reseller's own webhook and have no in-panel deliverable to show."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT * FROM orders WHERE reseller_id = ? AND channel = 'manual' "
+        "ORDER BY created_at DESC LIMIT ?",
+        (reseller_id, limit),
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
 
 
 def get_orders(reseller_id: int, limit: int = 50) -> list[dict]:

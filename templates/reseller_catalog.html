@@ -6,7 +6,7 @@
     <div class="page-head">
       <div>
         <h1>Product Catalog</h1>
-        <p class="muted">Your discounted prices. Order to dispense a real key from stock.</p>
+        <p class="muted">Your discounted prices. Generate a delivery link per product to share or use.</p>
       </div>
       <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
     </div>
@@ -23,7 +23,7 @@
       <p class="muted" style="margin-bottom:1rem;">Retail: ${{ "%.2f"|format(p.price) }} · Your price: <strong style="color:#fff;">${{ "%.2f"|format(p.reseller_price) }}</strong></p>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Variant</th><th>Retail</th><th>Your Price</th><th>Stock</th><th>Delivery URL</th><th></th></tr></thead>
+          <thead><tr><th>Variant</th><th>Retail</th><th>Your Price</th><th>Stock</th><th>Delivery URL</th></tr></thead>
           <tbody>
           {% for v in p.variants %}
             <tr>
@@ -34,7 +34,7 @@
               <td style="max-width:260px;">
                 {% if v.delivery_url %}
                   <code style="font-size:0.7rem;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
-                  <button class="btn btn-ghost btn-sm" style="margin-top:0.3rem;" onclick="copyUrl('du-{{ p.id }}-{{ v.variant_id }}')">Copy</button>
+                  <button class="btn btn-ghost btn-sm" style="margin-top:0.3rem;" onclick="copyUrl('du-{{ p.id }}-{{ v.variant_id }}', this)">Copy</button>
                   <form method="post" action="/reseller/alias/{{ p.id }}/revoke" style="display:inline;">
                     <input type="hidden" name="variant_id" value="{{ v.variant_id }}">
                     <button type="submit" class="btn btn-danger btn-sm" style="margin-top:0.3rem;">Revoke</button>
@@ -46,13 +46,6 @@
                     <button type="submit" class="btn btn-ghost btn-sm">Generate link</button>
                   </form>
                 {% endif %}
-              </td>
-              <td>
-                <form method="post" action="/reseller/order/{{ p.id }}" style="display:inline;">
-                  <input type="hidden" name="variant_id" value="{{ v.variant_id }}">
-                  <input type="hidden" name="quantity" value="1">
-                  <button type="submit" class="btn btn-primary btn-sm" {% if v.stock == 0 %}disabled{% endif %}>Dispense</button>
-                </form>
               </td>
             </tr>
           {% endfor %}
@@ -67,5 +60,22 @@
 {% endblock %}
 
 <script>
-function copyUrl(id){ const t=document.getElementById(id).textContent; navigator.clipboard?.writeText(t); const b=event.target; b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy',1200); }
+function copyUrl(id, btn){
+  const el = document.getElementById(id);
+  if (!el) return;
+  const text = el.textContent;
+  const done = (b) => { if (b) { b.textContent = 'Copied!'; setTimeout(() => b.textContent = 'Copy', 1200); } };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => done(btn)).catch(() => fallbackCopy(el, btn));
+  } else {
+    fallbackCopy(el, btn);
+  }
+}
+function fallbackCopy(el, btn){
+  const r = document.createRange(); r.selectNodeContents(el);
+  const s = window.getSelection(); s.removeAllRanges(); s.addRange(r);
+  try { document.execCommand('copy'); } catch(e) {}
+  s.removeAllRanges();
+  if (btn) { const old = btn.textContent; btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1200); }
+}
 </script>

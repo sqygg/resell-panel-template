@@ -22,17 +22,25 @@
 
     <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
       <div class="page-head">
-        <div><h4>SellAuth Balance Link</h4><p class="muted">Your spendable balance mirrors your SellAuth store customer balance.</p></div>
+        <div><h4>SellAuth Connection</h4><p class="muted">Link your SellAuth store customer so your balance mirrors automatically.</p></div>
         {% if sellauth_email %}
-          <form action="/reseller/api/sync" method="post"><button class="btn btn-ghost btn-sm">Sync now</button></form>
+          <span class="badge badge-active">● Connected</span>
+        {% else %}
+          <span class="badge badge-inactive">○ Not linked</span>
         {% endif %}
       </div>
       {% if sellauth_email %}
         <p class="muted" style="font-size:0.85rem;">Linked email: <code>{{ sellauth_email }}</code></p>
         <p style="font-size:1.5rem;font-weight:700;color:var(--green);">${{ "%.2f"|format(balance) }} {% if balance_source == 'cache' %}<span class="dim" style="font-size:0.8rem;">(cached)</span>{% endif %}</p>
+        <form action="/reseller/api/sync" method="post" style="margin-top:0.75rem;"><button class="btn btn-ghost btn-sm">Sync now</button></form>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">To change the linked account, re-enter the email below.</p>
       {% else %}
-        <p class="dim" style="font-size:0.85rem;">No SellAuth email linked. Ask the store owner to link your account — the panel balance will then mirror your store balance.</p>
+        <p class="dim" style="font-size:0.85rem;">Your account is not linked to SellAuth yet. Enter the customer email you use on the store to connect.</p>
       {% endif %}
+      <form action="/reseller/api/link-sellauth" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
+        <input type="email" name="email" value="{{ sellauth_email or '' }}" placeholder="you@store.com" required style="flex:1;min-width:200px;padding:0.6rem 0.8rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:0.5rem;color:var(--text);font-size:0.9rem;">
+        <button class="btn btn-primary btn-sm">{% if sellauth_email %}Update link{% else %}Link account{% endif %}</button>
+      </form>
     </div>
 
     <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
@@ -46,5 +54,6 @@
 <script>
 function copyKey(){ const t=document.getElementById('akey').textContent; navigator.clipboard?.writeText(t); alert('Copied!'); }
 {% if request.query_params.get('synced') == '1' %}window.addEventListener('load', ()=>alert('Balance synced from SellAuth.'));{% endif %}
+{% if request.query_params.get('linked') == '1' %}window.addEventListener('load', ()=>alert('SellAuth account linked. Use Sync to pull your balance.'));{% endif %}
 </script>
 {% endblock %}

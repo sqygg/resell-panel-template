@@ -5,7 +5,12 @@
   <div class="page-head"><div>
     <h1>Buy Keys</h1>
     <p class="muted">Purchase keys directly — balance is deducted and keys are delivered to you instantly. No webhook needed.</p>
-  </div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+
+  <div style="display:flex;gap:0.5rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+    <a href="/reseller/buy" class="btn btn-primary btn-sm">Buy Keys</a>
+    <a href="/reseller/orders" class="btn btn-ghost btn-sm">Orders</a>
+  </div>
 
   <div class="cards" style="margin-bottom:1.5rem;">
     <div class="card"><div class="label">Your Balance</div><div class="value green">${{ "%.2f"|format(balance) }}</div>

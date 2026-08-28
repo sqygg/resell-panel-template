@@ -205,6 +205,17 @@ def reseller_api_regen(request: Request):
         request=request, reseller=r, new_key=new_key))
 
 
+@router.post("/reseller/api/link-sellauth")
+def reseller_link_sellauth(request: Request, email: str = Form("")):
+    r = require_reseller(request)
+    email = (email or "").strip().lower()
+    import re
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
+        return HTMLResponse("<script>alert('Enter a valid email address.');window.location='/reseller/api';</script>")
+    db.set_sellauth_email(r["id"], email, ip=get_client_ip(request))
+    return RedirectResponse(url="/reseller/api?linked=1", status_code=303)
+
+
 @router.get("/reseller/buy", response_class=HTMLResponse)
 def reseller_buy_page(request: Request):
     r = require_reseller(request)
@@ -267,6 +278,14 @@ def reseller_referrals(request: Request):
         request=request, reseller=r, referrals=referrals, referral_earned=referral_earned,
         referral_code=code, referral_link=link, commission_percent=settings.REFERRAL_COMMISSION_PERCENT,
         balance=db.get_balance(r["id"])))
+
+
+@router.get("/reseller/orders", response_class=HTMLResponse)
+def reseller_orders_page(request: Request):
+    r = require_reseller(request)
+    orders = db.get_reseller_manual_orders(r["id"])
+    return templates.TemplateResponse("reseller_orders.html", _brand_ctx(
+        request=request, reseller=r, orders=orders))
 
 
 # ---------- Place Order (dispense key from SellAuth stock) ----------

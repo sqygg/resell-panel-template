@@ -8,7 +8,7 @@
         <h1>Welcome back, {{ reseller.name }}!</h1>
         <p class="muted">Your reseller summary — balance, orders, and referral earnings.</p>
       </div>
-      <a href="/reseller/catalog" class="btn btn-primary">Browse Catalog</a>
+      <a href="/reseller/buy" class="btn btn-primary">Browse products</a>
     </div>
 
     <div class="cards">
@@ -55,18 +55,11 @@
             <td class="dim" style="font-size:0.8rem;">{{ o.created_at[:16] }}</td>
           </tr>
         {% endfor %}
-        {% if not orders %}<tr><td colspan="6" class="dim" style="text-align:center;padding:2rem;">No orders yet. <a href="/reseller/catalog" style="color:#fff;">Browse products →</a></td></tr>{% endif %}
+        {% if not orders %}<tr><td colspan="6" class="dim" style="text-align:center;padding:2rem;">No orders yet. <a href="/reseller/buy" style="color:#fff;">Browse products →</a></td></tr>{% endif %}
         </tbody>
       </table>
     </div>
 
-    <div style="display:flex;gap:0.75rem;flex-wrap:wrap;margin-top:2rem;">
-      <a href="/reseller/buy" class="btn btn-primary">Buy Keys</a>
-      <a href="/reseller/catalog" class="btn btn-ghost">Browse Products</a>
-      <a href="/reseller/balance" class="btn btn-ghost">Balance</a>
-      <a href="/reseller/api" class="btn btn-ghost">Password</a>
-      <a href="/reseller/referrals" class="btn btn-ghost">Referrals</a>
-    </div>
   </div>
 </div>
 {% endblock %}
