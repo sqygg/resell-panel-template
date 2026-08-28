@@ -3,17 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Astro Reseller Panel{% endblock %}</title>
+  <title>{% block title %}Astro Panel{% endblock %}</title>
   <link rel="stylesheet" href="/static/void.css">
   <style>
     .navbar { justify-content: flex-start; }
     .dropdown { position: relative; }
     .brand-btn {
       cursor: pointer; background: none; border: none; font: inherit;
-      display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem;
-      border-radius: 10px; transition: background .15s;
+      padding: 0; border-radius: 9px; line-height: 0;
     }
-    .brand-btn:hover { background: rgba(255,255,255,.06); }
+    .brand-text { font-size: 1.25rem; font-weight: 700; }
     .caret { font-size: 0.7rem; transition: transform .2s; opacity: .8; }
     .dropdown.open .caret { transform: rotate(180deg); }
     .dropdown-menu {
@@ -52,9 +51,10 @@
   {% if reseller_logged_in or admin_authed %}
   <nav class="navbar">
     <div class="dropdown" id="brandDropdown">
-      <button class="brand brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
-        <span class="logo">Ξ</span> ASTRO <span class="caret">▾</span>
+      <button class="brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <span class="logo">Ξ</span>
       </button>
+      <span class="brand-text">ASTRO <span class="caret">▾</span></span>
       <div class="dropdown-menu">
         {% if reseller_logged_in %}
           <div class="menu-label">Reseller</div>

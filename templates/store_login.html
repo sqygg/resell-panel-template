@@ -5,7 +5,7 @@
         <div style="text-align:center;margin-bottom:2rem;">
             <div style="width:56px;height:56px;border-radius:14px;background:var(--brand-gradient);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;color:#fff;margin:0 auto 1rem;">Ξ</div>
             <h1 style="font-size:1.6rem;font-weight:800;">Welcome to {{ brand_name }}</h1>
-            <p style="color:var(--text-muted);margin-top:0.25rem;font-size:0.95rem;">Enter your API key to sign in to your reseller account</p>
+            <p style="color:var(--text-muted);margin-top:0.25rem;font-size:0.95rem;">Enter your password to sign in to your reseller account</p>
         </div>
         <form method="post" action="/store/login">
             <div class="form-group">
@@ -14,12 +14,12 @@
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" name="password" placeholder="rs_..." required style="text-align:center;">
+                <input type="password" name="password" placeholder="password" required style="text-align:center;">
             </div>
             <button type="submit" class="btn btn-primary" style="width:100%;">Sign In</button>
         </form>
         <p style="text-align:center;margin-top:1.5rem;font-size:0.82rem;color:var(--text-dim);">
-            Don't have an API key? <a href="/store/apply" style="color:var(--accent);">Apply to become a reseller</a>
+            Don't have login credentials? <a href="/store/apply" style="color:var(--accent);">Apply to become a reseller</a>
         </p>
     </div>
 </div>

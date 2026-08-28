@@ -1,87 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ brand_name or 'Reseller Panel' }}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <style>
-        :root{
-            --bg:#0b1018; --bg-nav:#000; --bg-card:#121a26; --bg-hover:#16202e;
-            --border:rgba(255,255,255,.08); --border-soft:rgba(255,255,255,.06);
-            --text:#dee2e6; --heading:#fff; --muted:#c7d2e4; --dim:#8b9ab5; --faint:#7a869c;
-            --accent:#7c5cff; --accent-2:#4f7cff; --accent-light:#a78bfa; --accent-hover:#6b46f0;
-            --gradient:linear-gradient(135deg,#4f7cff 0%,#7c5cff 100%);
-            --green:#22c55e; --yellow:#fbbf24; --red:#ef4444;
-        }
-        *{margin:0;padding:0;box-sizing:border-box;}
-        body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased;line-height:1.5;}
-        a{color:inherit;text-decoration:none;}
-        .navbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:1.5rem;padding:.85rem 2rem;background:var(--bg-nav);border-bottom:1px solid var(--border-soft);}
-        .navbar .logo{font-weight:800;font-size:1.25rem;display:flex;align-items:center;gap:.5rem;}
-        .navbar .logo .mark{width:30px;height:30px;border-radius:8px;background:var(--gradient);display:flex;align-items:center;justify-content:center;font-weight:800;color:#fff;}
-        .navbar nav{display:flex;gap:.25rem;flex:1;}
-        .navbar nav a{padding:.45rem .85rem;border-radius:8px;color:var(--muted);font-size:.9rem;font-weight:500;}
-        .navbar nav a:hover{color:var(--text);background:rgba(255,255,255,.06);}
-        .btn{display:inline-flex;align-items:center;gap:.4rem;padding:.55rem 1.15rem;border:none;border-radius:10px;font-size:.88rem;font-weight:600;cursor:pointer;font-family:inherit;}
-        .btn-primary{background:var(--gradient);color:#fff;}
-        .btn-primary:hover{background:var(--accent-hover);}
-        .btn-ghost{background:rgba(255,255,255,.07);color:var(--text);border:1px solid var(--border-soft);}
-        .btn-ghost:hover{background:rgba(255,255,255,.12);}
+{% extends "base.html" %}
+{% block head %}
+<style>
+  .landing-hero { max-width: 1000px; margin: 0 auto; padding: 5rem 2rem 3rem; text-align: center; }
+  .eyebrow { display: inline-block; padding: .3rem .8rem; border-radius: 999px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--border-strong);
+    color: var(--text-dim); font-size: .78rem; font-weight: 700; letter-spacing: .08em; margin-bottom: 1.25rem; }
+  .landing-hero h1 { font-size: 3rem; font-weight: 800; letter-spacing: -.03em; line-height: 1.05;
+    color: #fff; text-shadow: var(--glow); }
+  .landing-hero p { color: var(--text-dim); font-size: 1.1rem; margin: 1.25rem auto 0; max-width: 620px; }
+  .cta { display: flex; gap: .75rem; justify-content: center; margin-top: 2rem; }
+  .feature-grid { max-width: 1000px; margin: 0 auto; padding: 2rem; display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
+  .feature .ic { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,.06);
+    border: 1px solid var(--border-strong); display: flex; align-items: center; justify-content: center;
+    font-size: 1.2rem; margin-bottom: .75rem; }
+  .feature h3 { font-size: 1.05rem; margin-bottom: .35rem; color: #fff; }
+  .feature p { color: var(--text-dim); font-size: .9rem; }
+  .landing-top { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem; }
+  .landing-top .logo { display: flex; align-items: center; gap: .5rem; font-weight: 800; font-size: 1.25rem; color: #fff; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="landing-top">
+  <a href="/" class="logo">Ξ</a>
+  <a href="/login" class="btn btn-ghost btn-sm">Owner</a>
+</div>
 
-        .hero{max-width:1100px;margin:0 auto;padding:5rem 2rem 3rem;text-align:center;}
-        .hero .eyebrow{display:inline-block;padding:.3rem .8rem;border-radius:999px;background:rgba(124,92,255,.14);color:var(--accent-light);font-size:.78rem;font-weight:700;letter-spacing:.05em;margin-bottom:1.25rem;}
-        .hero h1{font-size:3.2rem;font-weight:800;letter-spacing:-.03em;line-height:1.05;}
-        .hero h1 .grad{background:var(--gradient);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
-        .hero p{color:var(--muted);font-size:1.1rem;margin:1.25rem auto 0;max-width:620px;}
-        .hero .cta{display:flex;gap:.75rem;justify-content:center;margin-top:2rem;}
+<section class="landing-hero">
+  <span class="eyebrow">ASTRO PLATFORM</span>
+  <h1>Sell <span style="color:#fff;text-shadow:var(--glow);">{{ brand_name or 'your products' }}</span><br>through your own resellers.</h1>
+  <p>{{ brand_tagline or 'Your reliable partner in gaming solutions.' }} Give resellers discounted access, automated key delivery, and a full API — all from one panel.</p>
+  <div class="cta">
+    <a href="/store/login" class="btn btn-primary">Reseller Dashboard</a>
+    <a href="/apply" class="btn btn-ghost">Apply to Resell</a>
+  </div>
+</section>
 
-        .cards{max-width:1100px;margin:0 auto;padding:2rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;}
-        .card{background:var(--bg-card);border:1px solid var(--border-soft);border-radius:14px;padding:1.4rem;}
-        .card .ic{width:40px;height:40px;border-radius:10px;background:rgba(124,92,255,.14);display:flex;align-items:center;justify-content:center;font-size:1.2rem;margin-bottom:.75rem;}
-        .card h3{font-size:1.05rem;margin-bottom:.35rem;}
-        .card p{color:var(--dim);font-size:.9rem;}
-
-        .band{max-width:1100px;margin:1rem auto;padding:2.5rem 2rem;text-align:center;}
-        .band h2{font-size:1.8rem;font-weight:800;margin-bottom:.5rem;}
-        .band p{color:var(--muted);}
-        footer{border-top:1px solid var(--border-soft);padding:2rem;color:var(--faint);text-align:center;font-size:.85rem;}
-    </style>
-</head>
-<body>
-    <header class="navbar">
-        <a href="/" class="logo"><span class="mark">Ξ</span>{{ brand_name or 'Reseller Panel' }}</a>
-        <nav>
-            <a href="/store/login">Reseller Login</a>
-            <a href="/apply">Become a Reseller</a>
-            <a href="/api-docs">API Docs</a>
-        </nav>
-        <a href="/login" class="btn btn-ghost btn-sm">Owner →</a>
-    </header>
-
-    <section class="hero">
-        <span class="eyebrow">RESELLER PLATFORM</span>
-        <h1>Sell <span class="grad">{{ brand_name or 'our products' }}</span><br>through your own resellers.</h1>
-        <p>{{ brand_tagline or 'Your reliable partner in gaming solutions.' }} Give resellers discounted access, automated key delivery, and a full API — all from one panel.</p>
-        <div class="cta">
-            <a href="/store/login" class="btn btn-primary">Reseller Dashboard</a>
-            <a href="/apply" class="btn btn-ghost">Apply to Resell</a>
-        </div>
-    </section>
-
-    <section class="cards">
-        <div class="card"><div class="ic">🔑</div><h3>API Delivery</h3><p>Resellers pull real keys/serials straight from your SellAuth stock via a signed API call.</p></div>
-        <div class="card"><div class="ic">％</div><h3>Per-Reseller Discounts</h3><p>Set custom discount % per reseller, applied automatically on every order.</p></div>
-        <div class="card"><div class="ic">📦</div><h3>Live Stock</h3><p>Products and stock sync directly from your SellAuth store — no manual entry.</p></div>
-        <div class="card"><div class="ic">🔗</div><h3>Referrals</h3><p>Built-in referral codes and commission tracking for reseller growth.</p></div>
-    </section>
-
-    <section class="band">
-        <h2>Owned & operated by you</h2>
-        <p>The owner dashboard is locked to your account — manage resellers, discounts, stock and deliveries in one place.</p>
-        <div style="margin-top:1.5rem;"><a href="/login" class="btn btn-primary">Owner Dashboard</a></div>
-    </section>
-
-    <footer>{{ brand_name or 'Reseller Panel' }} · Powered by SellAuth</footer>
-</body>
-</html>
+<section class="feature-grid">
+  <div class="card feature"><div class="ic">🔑</div><h3>API Delivery</h3><p>Resellers pull real keys/serials straight from your SellAuth stock via a signed API call.</p></div>
+  <div class="card feature"><div class="ic">％</div><h3>Per-Reseller Discounts</h3><p>Set custom discount % per reseller, applied automatically on every order.</p></div>
+  <div class="card feature"><div class="ic">📦</div><h3>Live Stock</h3><p>Products and stock sync directly from your SellAuth store — no manual entry.</p></div>
+  <div class="card feature"><div class="ic">🔗</div><h3>Referrals</h3><p>Built-in referral codes and commission tracking for reseller growth.</p></div>
+</section>
+{% endblock %}

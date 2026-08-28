@@ -1,20 +1,20 @@
 {% extends "base.html" %}
-{% block title %}API Key · Astro Reseller{% endblock %}
+{% block title %}Password · Astro Panel{% endblock %}
 {% block content %}
 <div class="page">
   <div class="container">
     <div class="page-head">
-      <div><h1>Your API Key</h1><p class="muted">Use this key to place orders via the API. Your password on /auth is this same key.</p></div>
+      <div><h1>Your Password</h1><p class="muted">Use this password to authenticate API orders. This is also your /auth sign-in password.</p></div>
       <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
     </div>
 
     <div class="card" style="padding:1.5rem;">
-      <p class="muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;">Current API Key (password)</p>
+      <p class="muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;">Current Password</p>
       {% if api_key %}
-        <code id="akey" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;">{{ api_key }}</code>
+        <code id="akey" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;filter:blur(6px);user-select:none;">{{ api_key }}</code>
         <button class="btn btn-ghost btn-sm" onclick="copyKey()">Copy</button>
         <a href="/reseller/api/regen" class="btn btn-danger btn-sm" onclick="return confirm('Regenerate? Old key stops immediately.')">Regenerate</a>
-        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Regenerating invalidates the old key. The new key is shown once on the next page.</p>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Your password is blurred for security. Copy grabs the real value. Regenerating invalidates the old password — the new one is shown in clear text once on the next page.</p>
       {% else %}
         <p class="dim">No key available. Contact the store owner.</p>
       {% endif %}
