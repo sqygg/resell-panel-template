@@ -5,17 +5,78 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Astro Reseller Panel{% endblock %}</title>
   <link rel="stylesheet" href="/static/void.css">
+  <style>
+    .navbar { justify-content: flex-end; }
+    .dropdown { position: relative; margin-left: auto; }
+    .brand-btn {
+      cursor: pointer; background: none; border: none; font: inherit;
+      display: flex; align-items: center; gap: 0.4rem; padding: 0.35rem 0.6rem;
+      border-radius: 10px; transition: background .15s;
+    }
+    .brand-btn:hover { background: rgba(255,255,255,.06); }
+    .caret { font-size: 0.7rem; transition: transform .2s; opacity: .8; }
+    .dropdown.open .caret { transform: rotate(180deg); }
+    .dropdown-menu {
+      position: absolute; top: calc(100% + 0.4rem); right: 0; left: auto;
+      min-width: 210px; background: #0b0e14; border: 1px solid var(--border);
+      border-radius: 12px; padding: 0.4rem; display: none; flex-direction: column;
+      z-index: 100; box-shadow: 0 16px 40px rgba(0,0,0,.55);
+    }
+    .dropdown.open .dropdown-menu { display: flex; }
+    .dropdown-menu .menu-label {
+      font-size: 0.68rem; text-transform: uppercase; letter-spacing: .07em;
+      color: #6b7890; padding: 0.45rem 0.75rem 0.25rem; font-weight: 600;
+    }
+    .dropdown-menu a {
+      padding: 0.55rem 0.75rem; border-radius: 8px; font-size: 0.9rem;
+      color: var(--text-dim); font-weight: 500;
+    }
+    .dropdown-menu a:hover { background: rgba(255,255,255,.06); color: #fff; text-shadow: none; }
+    .dropdown-menu .divider { height: 1px; background: var(--border); margin: 0.35rem 0; }
+  </style>
   {% block head %}{% endblock %}
 </head>
 <body>
+  {% set path = request.url.path %}
+  {% if path.startswith('/reseller') or path.startswith('/auth') or path.startswith('/apply') %}
+    {% set realm = 'reseller' %}
+  {% elif path.startswith('/admin') or path.startswith('/login') or path.startswith('/resellers') or path.startswith('/stock') %}
+    {% set realm = 'admin' %}
+  {% else %}
+    {% set realm = 'none' %}
+  {% endif %}
+
   <nav class="navbar">
-    <a class="brand" href="/">
-      <span class="logo">Ξ</span> ASTRO
-    </a>
-    <div class="nav-links">
-      <a href="/reseller">Reseller</a>
-      <a href="/admin">Admin</a>
-      {% if session_name %}<a href="/logout">Sign out ({{ session_name }})</a>{% else %}<a href="/auth">Sign in</a>{% endif %}
+    <div class="dropdown" id="brandDropdown">
+      <button class="brand brand-btn" type="button" aria-haspopup="true" aria-expanded="false">
+        <span class="logo">Ξ</span> ASTRO <span class="caret">▾</span>
+      </button>
+      <div class="dropdown-menu">
+        {% if realm == 'reseller' %}
+          <div class="menu-label">Reseller</div>
+          <a href="/reseller">Home</a>
+          <a href="/reseller/balance">Balance</a>
+          <a href="/reseller/buy">Buy Keys</a>
+          <a href="/reseller/catalog">Api Integration</a>
+          <a href="/reseller/referrals">Referrals</a>
+          <a href="/reseller/api">Settings</a>
+          <div class="divider"></div>
+          {% if session_name %}<a href="/logout">Sign out ({{ session_name }})</a>{% else %}<a href="/auth">Sign in</a>{% endif %}
+        {% elif realm == 'admin' %}
+          <div class="menu-label">Admin</div>
+          <a href="/admin">Home</a>
+          <a href="/resellers">Resellers</a>
+          <a href="/stock">Stock</a>
+          <a href="/admin/orders">Orders</a>
+          <a href="/admin/applications">Applications</a>
+          <div class="divider"></div>
+          {% if session_name %}<a href="/logout">Sign out ({{ session_name }})</a>{% else %}<a href="/login">Sign in</a>{% endif %}
+        {% else %}
+          <div class="menu-label">Astro</div>
+          <a href="/auth">Reseller Panel</a>
+          <a href="/login">Admin Panel</a>
+        {% endif %}
+      </div>
     </div>
   </nav>
 
@@ -25,5 +86,28 @@
     <p>Ξ ASTRO — Your reliable partner in gaming solutions.</p>
     <p>© 2026 Astro. All rights reserved.{% if deploy_sha %} <span class="dim">· build {{ deploy_sha[:7] }}</span>{% endif %}</p>
   </footer>
+
+  <script>
+    (function () {
+      var dd = document.getElementById('brandDropdown');
+      if (!dd) return;
+      var btn = dd.querySelector('.brand-btn');
+      dd.addEventListener('click', function (e) {
+        if (dd.contains(e.target)) {
+          var open = dd.classList.toggle('open');
+          btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        } else {
+          dd.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+      document.addEventListener('click', function (e) {
+        if (!dd.contains(e.target)) {
+          dd.classList.remove('open');
+          btn.setAttribute('aria-expanded', 'false');
+        }
+      });
+    })();
+  </script>
 </body>
 </html>
