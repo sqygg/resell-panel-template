@@ -196,7 +196,7 @@ def reseller_create_test(request: Request):
             discount_percent=0,
             ip="",  # do NOT log the admin's IP for test accounts
             username="test",
-            email="Test",
+            email="test@email.com",
             raw_key="Test",
         )
     except ValueError as e:

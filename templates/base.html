@@ -55,22 +55,22 @@
     .copy-btn.copied .tick { transform: scale(1); }
     .copy-btn .lbl { transition: opacity .15s; }
     .copy-btn.copied .lbl { opacity: 0; position: absolute; }
+    /* Scroll progress bar */
+    .scroll-progress {
+      position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 300;
+      background: linear-gradient(90deg, #6366f1, #22c55e);
+      transition: width .08s linear; pointer-events: none;
+    }
+    /* Cookie consent banner */
+    .cookie-banner {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+      background: #0b0e14; border-top: 1px solid var(--border-strong);
+      padding: 1rem 1.25rem; display: flex; align-items: center;
+      justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+    }
+    .cookie-banner p { margin: 0; color: var(--text-dim); font-size: .9rem; max-width: 720px; }
+    .cookie-banner .ck-actions { display: flex; gap: .5rem; }
   </style>
-  /* Scroll progress bar */
-  .scroll-progress {
-    position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 300;
-    background: linear-gradient(90deg, #6366f1, #22c55e);
-    transition: width .08s linear; pointer-events: none;
-  }
-  /* Cookie consent banner */
-  .cookie-banner {
-    position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
-    background: #0b0e14; border-top: 1px solid var(--border-strong);
-    padding: 1rem 1.25rem; display: flex; align-items: center;
-    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  }
-  .cookie-banner p { margin: 0; color: var(--text-dim); font-size: .9rem; max-width: 720px; }
-  .cookie-banner .ck-actions { display: flex; gap: .5rem; }
   {% block head %}{% endblock %}
 </head>
 <body>
