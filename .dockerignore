@@ -1,0 +1,33 @@
+# Venv / python caches
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+
+# Local data / secrets
+*.db
+*.db-wal
+*.db-shm
+.env
+.env.*
+!.env.example
+
+# Repo metadata
+.git/
+.gitignore
+
+# Node (sellauth-embed)
+node_modules/
+
+# Session / doc dumps
+*.md
+!README.md
+reseller_panel_*.json
+reseller_panel_*.md
+session_*.json
+
+# Misc
+.DS_Store
+*.log
