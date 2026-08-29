@@ -61,6 +61,15 @@ class Settings:
     NTFY_TOPIC: str = os.getenv("NTFY_TOPIC", "")
     NTFY_SERVER: str = os.getenv("NTFY_SERVER", "https://ntfy.angelatos.gr")
 
+    # ---------- External MySQL (freesqldatabase.com etc.) ----------
+    # When ALL of these are set, the panel uses MySQL instead of the local SQLite file.
+    # Data then survives redeploys (no more wipe on every deploy).
+    MYSQL_HOST: str = os.getenv("MYSQL_HOST", "")
+    MYSQL_PORT: int = int(os.getenv("MYSQL_PORT", "3306"))
+    MYSQL_USER: str = os.getenv("MYSQL_USER", "")
+    MYSQL_PASSWORD: str = os.getenv("MYSQL_PASSWORD", "")
+    MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "")
+
     # ---------- SMTP (2FA / transactional email) ----------
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
