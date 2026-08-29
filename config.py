@@ -11,6 +11,10 @@ class Settings:
     # ---------- SellAuth ----------
     SELLAUTH_API_KEY: str = os.getenv("SELLAUTH_API_KEY", "")
     SELLAUTH_SHOP_ID: str = os.getenv("SELLAUTH_SHOP_ID", "")
+    # HMAC secret for inbound SellAuth dynamic-delivery webhooks (Storefront >
+    # Configure > Miscellaneous). If set, POST /api/deliver/dynamic verifies the
+    # X-Signature header; if empty, signature is NOT verified (dev/test only).
+    SELLAUTH_WEBHOOK_SECRET: str = os.getenv("SELLAUTH_WEBHOOK_SECRET", "")
 
     # ---------- Admin ----------
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")

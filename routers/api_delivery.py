@@ -7,16 +7,85 @@ Flow: authenticate -> price by VARIANT -> check balance -> check stock -> dispen
       -> record order -> credit referral -> fire reseller webhook (if set).
 """
 import time
+import json
 import httpx
 from fastapi import APIRouter, HTTPException, Request, Query
 from pydantic import BaseModel
 import database as db
 from security import get_client_ip
+from config import settings
 from services.sellauth import client as sellauth
 
 router = APIRouter(prefix="/api/deliver", tags=["delivery"])
 
-RESERVED = {"health", "docs", "openapi.json", "redoc"}
+RESERVED = {"health", "docs", "openapi.json", "redoc", "dynamic"}
+
+
+# ---------------------------------------------------------------------------
+# SellAuth dynamic-delivery webhook
+# SellAuth POSTs one request per invoice item with a nested `item` object and
+# signs the raw body via the X-Signature header (HMAC-SHA256). It expects the
+# response BODY to be newline-delimited deliverables (each line = one key) on
+# HTTP 200, NOT a JSON document.
+# ---------------------------------------------------------------------------
+@router.post("/dynamic")
+async def deliver_dynamic(request: Request):
+    import hmac as _hmac
+    import hashlib as _hashlib
+
+    raw = await request.body()
+    secret = settings.SELLAUTH_WEBHOOK_SECRET
+    if secret:
+        sig = request.headers.get("X-Signature", "")
+        expected = _hmac.new(secret.encode(), raw, _hashlib.sha256).hexdigest()
+        if not _hmac.compare_digest(sig, expected):
+            return _plain(401, "Invalid signature")
+
+    try:
+        payload = json.loads(raw) if raw else {}
+    except Exception:
+        return _plain(400, "Invalid JSON body")
+
+    item = payload.get("item") or {}
+    product_id = str(item.get("product_id", "")).strip()
+    variant_id_raw = item.get("variant_id")
+    variant_id = str(variant_id_raw).strip() if variant_id_raw not in (None, "") else None
+    try:
+        quantity = int(item.get("quantity", 1) or 1)
+    except (TypeError, ValueError):
+        quantity = 1
+    customer_email = payload.get("email", "") or ""
+
+    if not product_id:
+        return _plain(400, "Missing item.product_id")
+
+    # Map the dynamic webhook to a reseller via the product's owner shop.
+    # The panel serves a single SellAuth shop; use the configured API key's
+    # reseller so balance/commission accounting works. We look up ANY active
+    # reseller that has a key — in single-shop mode that is the panel owner.
+    reseller = db.get_primary_reseller()
+    if not reseller:
+        return _plain(500, "No reseller configured to fulfill delivery")
+
+    try:
+        result = _do_deliver(
+            None, product_id, variant_id, quantity, customer_email,
+            str(payload.get("unique_id", "")), request,
+            alias_owner=reseller["id"],
+        )
+    except HTTPException as e:
+        # Non-2xx/429/5xx => SellAuth marks item failed (shows this text)
+        return _plain(e.status_code, str(e.detail))
+    except Exception as e:  # noqa: BLE001
+        return _plain(500, f"Delivery error: {e}")
+
+    keys = result.get("keys", [])
+    return _plain(200, "\n".join(keys))
+
+
+def _plain(status_code: int, text: str):
+    from fastapi.responses import PlainTextResponse
+    return PlainTextResponse(content=text, status_code=status_code)
 
 
 class DeliveryRequest(BaseModel):

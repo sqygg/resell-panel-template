@@ -668,6 +668,23 @@ def get_reseller_by_id(reseller_id: int) -> dict | None:
     return None
 
 
+def get_primary_reseller() -> dict | None:
+    """First active reseller (panel owner). Used to fulfill inbound SellAuth
+    dynamic-delivery webhooks for the single shop the panel serves."""
+    conn = get_db()
+    try:
+        row = conn.execute(_ph(
+            "SELECT * FROM resellers WHERE active = 1 ORDER BY id ASC LIMIT 1"
+        )).fetchone()
+    finally:
+        conn.close()
+    if row:
+        d = dict(row)
+        d.pop("api_key_enc", None)
+        return d
+    return None
+
+
 def list_resellers() -> list[dict]:
     conn = get_db()
     try:
