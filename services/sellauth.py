@@ -42,11 +42,14 @@ class SellAuthClient:
         products = data.get("data", [])
         return products
 
-    def get_product(self, product_id: str) -> dict:
+    def get_product(self, product_id: str, shop_id: str | None = None) -> dict:
         """Fetch a single product by ID. Returns {"ok": True, "data": {...}} on
         success, or {"ok": False, "status": int, "error": str} on failure (so
-        callers can surface the REAL SellAuth reason instead of 'Product not found')."""
-        url = f"{self.base}/shops/{self.shop_id}/products/{product_id}"
+        callers can surface the REAL SellAuth reason instead of 'Product not found').
+        `shop_id` overrides the configured shop (used by webhooks that carry the
+        real shop id in the payload)."""
+        sid = shop_id or self.shop_id
+        url = f"{self.base}/shops/{sid}/products/{product_id}"
         try:
             with httpx.Client(timeout=15) as client:
                 resp = client.get(url, headers=self.headers)
@@ -55,9 +58,9 @@ class SellAuthClient:
                         return {"ok": True, "data": resp.json()}
                     except Exception:
                         return {"ok": True, "data": {}}
-                return {"ok": False, "status": resp.status_code, "error": resp.text[:400]}
+                return {"ok": False, "status": resp.status_code, "error": resp.text[:400], "shop_id": sid}
         except Exception as e:
-            return {"ok": False, "status": 0, "error": str(e)[:400]}
+            return {"ok": False, "status": 0, "error": str(e)[:400], "shop_id": sid}
 
     def update_stock(self, product_id: str, variant_id: str, quantity: int) -> bool:
         """Update stock quantity for a product variant."""
@@ -70,11 +73,12 @@ class SellAuthClient:
 
     # ---------- Serial / key delivery ----------
 
-    def get_deliverables(self, product_id: str, variant_id: str | int) -> list[str] | None:
+    def get_deliverables(self, product_id: str, variant_id: str | int, shop_id: str | None = None) -> list[str] | None:
         """List serials/keys on a product variant. Returns list or None on failure."""
+        sid = shop_id or self.shop_id
         result = self._request(
             "GET",
-            f"/shops/{self.shop_id}/products/{product_id}/deliverables/{variant_id}",
+            f"/shops/{sid}/products/{product_id}/deliverables/{variant_id}",
         )
         if result is None:
             return None
@@ -113,23 +117,24 @@ class SellAuthClient:
             return None
         return keys[0]
 
-    def dispense_bulk(self, product_id: str, variant_id: str | int, quantity: int) -> list[str] | None:
+    def dispense_bulk(self, product_id: str, variant_id: str | int, quantity: int, shop_id: str | None = None) -> list[str] | None:
         """Atomically take up to `quantity` keys from SellAuth stock.
 
         Returns the taken key list, or None on upstream failure.
         If fewer than `quantity` are in stock, returns [] WITHOUT consuming
         (caller should treat empty as out-of-stock).
         """
-        keys = self.get_deliverables(product_id, variant_id)
+        keys = self.get_deliverables(product_id, variant_id, shop_id=shop_id)
         if keys is None:
             return None
         if len(keys) < quantity:
             return []
         take = keys[:quantity]
         remaining = keys[quantity:]
+        sid = shop_id or self.shop_id
         result = self._request(
             "PUT",
-            f"/shops/{self.shop_id}/products/{product_id}/deliverables/overwrite/{variant_id}",
+            f"/shops/{sid}/products/{product_id}/deliverables/overwrite/{variant_id}",
             json={"deliverables": remaining, "confirm_empty": True},
         )
         if result is None:
