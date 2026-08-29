@@ -57,7 +57,6 @@ async def deliver_dynamic(api_key: str, request: Request):
 
     item = payload.get("item") or {}
     product_id = str(item.get("product_id", "")).strip()
-    shop_id = str(payload.get("shop_id", "")).strip() or None
     variant_id_raw = item.get("variant_id")
     variant_id = str(variant_id_raw).strip() if variant_id_raw not in (None, "") else None
     try:
@@ -73,7 +72,6 @@ async def deliver_dynamic(api_key: str, request: Request):
         result = _do_deliver(
             api_key, product_id, variant_id, quantity, customer_email,
             str(payload.get("unique_id", "")), request,
-            shop_id=shop_id,
         )
     except HTTPException as e:
         # Non-2xx/429/5xx => SellAuth marks item failed (shows this text)
@@ -133,7 +131,6 @@ def _do_deliver(
     order_id,
     request: Request,
     alias_owner: int | None = None,
-    shop_id: str | None = None,
 ):
     start = time.time()
     ip = get_client_ip(request)
@@ -156,7 +153,7 @@ def _do_deliver(
     if not (1 <= quantity <= 50):
         raise HTTPException(status_code=400, detail="Quantity must be 1-50")
 
-    product = sellauth.get_product(product_id, shop_id=shop_id)
+    product = sellauth.get_product(product_id, shop_id=settings.SELLAUTH_SHOP_ID)
     if not product.get("ok"):
         detail = (f"SellAuth product {product_id} lookup failed"
                   f" (shop {product.get('shop_id')}): HTTP {product.get('status')} {product.get('error', '')}").strip()
@@ -185,7 +182,7 @@ def _do_deliver(
         raise HTTPException(status_code=402, detail=str(e))
 
     # Dispense (atomic bulk; returns [] without consuming if stock insufficient)
-    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=settings.SELLAUTH_SHOP_ID)
     if keys is None:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
