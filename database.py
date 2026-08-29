@@ -1186,6 +1186,38 @@ def deduct_balance(reseller_id: int, amount: float, order_id: int, description: 
     return float(row["balance"]) if row else 0.0
 
 
+def deduct_both_balances(reseller_id: int, amount: float, order_id: int, description: str = "") -> float:
+    """Deduct `amount` from BOTH the local panel balance and the linked SellAuth
+    customer balance, keeping the two ledgers in sync. Fails (raises ValueError)
+    if EITHER ledger is short — never leaves the two out of step.
+
+    Order is deliberate: SellAuth is charged FIRST. If the SellAuth call fails we
+    raise before touching the local ledger, so a partial deduction can't happen.
+    """
+    if amount <= 0:
+        raise ValueError("Amount must be positive")
+    local = get_balance(reseller_id)
+    if local < amount:
+        raise ValueError(f"Insufficient panel balance: ${local:.2f} available, ${amount:.2f} needed")
+
+    email = get_sellauth_email(reseller_id)
+    if email:
+        cid = _sellauth_client.get_customer_id_by_email(email)
+        if cid:
+            sa_bal = _sellauth_client.get_customer_balance(email)
+            if sa_bal is None:
+                raise ValueError("Could not read SellAuth balance (check API token / link)")
+            if sa_bal < amount:
+                raise ValueError(f"Insufficient SellAuth balance: ${sa_bal:.2f} available, ${amount:.2f} needed")
+            # Charge SellAuth first; if it fails, local is untouched.
+            resp = _sellauth_client.edit_customer_balance(cid, -amount, description=description, invoice_id=order_id)
+            if resp is None:
+                raise ValueError("SellAuth balance deduction failed (API error)")
+
+    # Local ledger
+    return deduct_balance(reseller_id, amount, order_id, description)
+
+
 def get_transactions(reseller_id: int, limit: int = 50) -> list[dict]:
     conn = get_db()
     try:

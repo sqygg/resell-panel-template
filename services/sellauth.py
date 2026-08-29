@@ -211,5 +211,28 @@ class SellAuthClient:
         except (TypeError, ValueError):
             return 0.0
 
+    def get_customer_id_by_email(self, email: str) -> str | None:
+        """Return a SellAuth customer's id by email, or None if not found."""
+        c = self.get_customer_by_email(email)
+        if not c:
+            return None
+        cid = c.get("id")
+        return str(cid) if cid is not None else None
+
+    def edit_customer_balance(
+        self, customer_id: str, amount: float, description: str = "", invoice_id: int | None = None
+    ) -> dict | None:
+        """Add (positive) or deduct (negative) balance for a SellAuth customer.
+        Returns the API JSON response or None on failure. amount must be within
+        [-1000, 1000] per SellAuth limits."""
+        payload: dict = {"amount": round(float(amount), 2), "description": description[:255]}
+        if invoice_id is not None:
+            payload["invoice_id"] = invoice_id
+        return self._request(
+            "PUT",
+            f"/shops/{self.shop_id}/customers/{customer_id}/balance",
+            json=payload,
+        )
+
 
 client = SellAuthClient()

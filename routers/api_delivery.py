@@ -72,7 +72,6 @@ async def deliver_dynamic(api_key: str, request: Request):
         result = _do_deliver(
             api_key, product_id, variant_id, quantity, customer_email,
             str(payload.get("unique_id", "")), request,
-            charge_balance=False,  # SellAuth already charged the customer
         )
     except HTTPException as e:
         # Non-2xx/429/5xx => SellAuth marks item failed (shows this text)
@@ -132,7 +131,6 @@ def _do_deliver(
     order_id,
     request: Request,
     alias_owner: int | None = None,
-    charge_balance: bool = True,
 ):
     start = time.time()
     ip = get_client_ip(request)
@@ -171,17 +169,16 @@ def _do_deliver(
     total = round(unit * quantity, 2)
 
     # Balance check BEFORE dispensing (never charge for nothing).
-    # For the SellAuth dynamic-delivery webhook the CUSTOMER is already charged
-    # by SellAuth, so we must NOT deduct local prepaid balance too — skip it.
-    if charge_balance:
-        balance = db.get_balance(reseller["id"])
-        if balance < total:
-            elapsed = (time.time() - start) * 1000
-            db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
-            raise HTTPException(
-                status_code=402,
-                detail=f"Insufficient balance: ${balance:.2f} available, ${total:.2f} needed",
-            )
+    # Both ledgers (local panel + linked SellAuth customer) must have funds;
+    # deduct_both_balances enforces and deducts both, keeping them in sync.
+    balance = db.get_balance(reseller["id"])
+    if balance < total:
+        elapsed = (time.time() - start) * 1000
+        db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient panel balance: ${balance:.2f} available, ${total:.2f} needed",
+        )
 
     # Dispense (atomic bulk; returns [] without consuming if stock insufficient)
     keys = sellauth.dispense_bulk(product_id, variant_id, quantity)
@@ -206,13 +203,12 @@ def _do_deliver(
         customer_email=customer_email or "",
         channel="webhook",
     )
-    if charge_balance:
-        try:
-            db.deduct_balance(
-                reseller["id"], total, order["id"],
-                f"API delivery {product.get('name', '?')} x{quantity}",
-            )
-        except ValueError as e:
+    try:
+        db.deduct_both_balances(
+            reseller["id"], total, order["id"],
+            f"API delivery {product.get('name', '?')} x{quantity}",
+        )
+    except ValueError as e:
             # Roll back the partial order state if balance deduction fails
             db.update_order_status(order["id"], "failed")
             elapsed = (time.time() - start) * 1000
