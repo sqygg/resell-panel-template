@@ -1210,9 +1210,13 @@ def deduct_both_balances(reseller_id: int, amount: float, order_id: int, descrip
             if sa_bal < amount:
                 raise ValueError(f"Insufficient SellAuth balance: ${sa_bal:.2f} available, ${amount:.2f} needed")
             # Charge SellAuth first; if it fails, local is untouched.
-            resp = _sellauth_client.edit_customer_balance(cid, -amount, description=description, invoice_id=order_id)
-            if resp is None:
-                raise ValueError("SellAuth balance deduction failed (API error)")
+            # NB: invoice_id is a SellAuth INVOICE id, not our panel order id —
+            # omit it to avoid 422s (it's optional per the API).
+            resp = _sellauth_client.edit_customer_balance(cid, -amount, description=description)
+            if not resp.get("ok"):
+                raise ValueError(
+                    f"SellAuth balance deduction failed: HTTP {resp.get('status')} {resp.get('error', '')}".strip()
+                )
 
     # Local ledger
     return deduct_balance(reseller_id, amount, order_id, description)

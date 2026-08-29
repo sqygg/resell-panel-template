@@ -187,19 +187,29 @@ class SellAuthClient:
     # ---------- Customer (store balance mirror) ----------
 
     def get_customer_by_email(self, email: str) -> dict | None:
-        """Look up a SellAuth customer record by email. Returns {id, email, balance} or None."""
-        data = self._request(
-            "GET",
-            f"/shops/{self.shop_id}/customers",
-            json={"page": 1, "perPage": 50, "email": email},
-        )
-        if not data:
-            return None
-        rows = data.get("data", []) if isinstance(data, dict) else data
-        for c in rows:
-            if (c.get("email") or "").lower() == (email or "").lower():
-                return c
-        return None
+        """Look up a SellAuth customer record by email. Returns {id, email, balance} or None.
+        Scans all pages (the matching customer may not be on page 1)."""
+        email = (email or "").lower()
+        page = 1
+        while True:
+            data = self._request(
+                "GET",
+                f"/shops/{self.shop_id}/customers",
+                json={"page": page, "perPage": 100, "email": email},
+            )
+            if not data:
+                return None
+            rows = data.get("data", []) if isinstance(data, dict) else data
+            if not rows:
+                return None
+            for c in rows:
+                if (c.get("email") or "").lower() == email:
+                    return c
+            meta = data.get("meta", {}) if isinstance(data, dict) else {}
+            total = int(meta.get("total", 0) or 0)
+            if total and page * 100 >= total:
+                return None
+            page += 1
 
     def get_customer_balance(self, email: str) -> float | None:
         """Return a customer's store balance (USD) by email, or None if not found."""
@@ -221,18 +231,26 @@ class SellAuthClient:
 
     def edit_customer_balance(
         self, customer_id: str, amount: float, description: str = "", invoice_id: int | None = None
-    ) -> dict | None:
+    ) -> dict:
         """Add (positive) or deduct (negative) balance for a SellAuth customer.
-        Returns the API JSON response or None on failure. amount must be within
-        [-1000, 1000] per SellAuth limits."""
+        Returns {"ok": True, ...} on success, or {"ok": False, "status": int,
+        "error": str} on failure (so callers can surface the REAL reason instead
+        of a generic 'API error'). amount must be within [-1000, 1000]."""
         payload: dict = {"amount": round(float(amount), 2), "description": description[:255]}
         if invoice_id is not None:
             payload["invoice_id"] = invoice_id
-        return self._request(
-            "PUT",
-            f"/shops/{self.shop_id}/customers/{customer_id}/balance",
-            json=payload,
-        )
+        url = f"{self.base}/shops/{self.shop_id}/customers/{customer_id}/balance"
+        try:
+            with httpx.Client(timeout=15) as client:
+                resp = client.put(url, headers=self.headers, json=payload)
+                if resp.status_code == 200:
+                    try:
+                        return {"ok": True, **resp.json()}
+                    except Exception:
+                        return {"ok": True}
+                return {"ok": False, "status": resp.status_code, "error": resp.text[:400]}
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": str(e)[:400]}
 
 
 client = SellAuthClient()
