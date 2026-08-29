@@ -331,6 +331,12 @@ def _ddl_init() -> str:
         ddl = _re.sub(r"TEXT(?: NOT NULL)? DEFAULT ''", "TEXT", ddl)
         ddl = _re.sub(r"TEXT NOT NULL DEFAULT \(datetime\('now'\)\)", "VARCHAR(32) NOT NULL DEFAULT (NOW())", ddl)
         ddl = ddl.replace("datetime('now')", "NOW()")
+        # In MySQL mode _now_sql() returns NOW(), so timestamp columns render as
+        # TEXT NOT NULL DEFAULT (NOW()) — invalid (function default on TEXT is not
+        # allowed in MySQL, and inserts sometimes omit created_at). Convert to
+        # VARCHAR(32) with an empty-string default; the app supplies real ISO
+        # timestamps on insert where needed.
+        ddl = _re.sub(r"TEXT NOT NULL DEFAULT \(NOW\(\)\)", "VARCHAR(32) NOT NULL DEFAULT ''", ddl)
         ddl = ddl.replace("status TEXT NOT NULL DEFAULT 'pending'", "status VARCHAR(32) NOT NULL DEFAULT 'pending'")
         ddl = ddl.replace("channel TEXT NOT NULL DEFAULT 'manual'", "channel VARCHAR(32) NOT NULL DEFAULT 'manual'")
         ddl = ddl.replace("api_key_enc TEXT NOT NULL", "api_key_enc VARCHAR(512) NOT NULL")
