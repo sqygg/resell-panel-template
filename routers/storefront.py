@@ -280,8 +280,10 @@ def reseller_api_page(request: Request):
         request=request, reseller=r, api_key_mask=masked,
         balance=balance_info["balance"], balance_source=balance_info["source"],
         sellauth_email=balance_info["email"],
+        has_sellauth_secret=bool(db.get_sellauth_webhook_secret(r["id"])),
         code=request.query_params.get("code", ""),
-        resent=request.query_params.get("resent", "")))
+        resent=request.query_params.get("resent", ""),
+        secret_set=request.query_params.get("secret_set", "")))
 
 
 @router.get("/reseller/api/key", response_class=JSONResponse)
@@ -291,6 +293,18 @@ def reseller_api_key(request: Request):
     r = require_reseller(request)
     key = db.reveal_api_key(r["id"]) or ""
     return JSONResponse({"api_key": key})
+
+
+@router.post("/reseller/api/sellauth-secret")
+def reseller_set_sellauth_secret(request: Request, secret: str = Form("")):
+    """Save or clear the reseller's own SellAuth dynamic-delivery webhook secret.
+    Stored encrypted at rest; used to verify inbound webhook HMAC signatures."""
+    r = require_reseller(request)
+    secret = (secret or "").strip()
+    if secret and len(secret) > 200:
+        return HTMLResponse("<script>alert('Secret too long (max 200 chars).');window.location='/reseller/api';</script>")
+    db.set_sellauth_webhook_secret(r["id"], secret, ip=get_client_ip(request))
+    return RedirectResponse(url="/reseller/api?secret_set=1", status_code=303)
 
 
 @router.post("/reseller/api/sync")

@@ -61,6 +61,19 @@
         </form>
       {% endif %}
     </div>
+
+    <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
+      <div class="page-head">
+        <div><h4>SellAuth Webhook Secret</h4><p class="muted">Paste your SellAuth dynamic-delivery webhook secret so inbound webhooks are verified against YOUR key. Leave blank to use the store's global secret.</p></div>
+        {% if has_sellauth_secret %}<span class="badge badge-active">● Set</span>{% else %}<span class="badge badge-inactive">○ Not set</span>{% endif %}
+      </div>
+      <form action="/reseller/api/sellauth-secret" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+        <input name="secret" type="password" autocomplete="new-password" placeholder="SellAuth webhook secret (Storefront → Configure → Miscellaneous)" style="flex:1;min-width:220px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
+        <button class="btn btn-primary btn-sm" type="submit">Save secret</button>
+      </form>
+      <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Your secret is encrypted at rest and never shown back in full. Set the webhook URL in SellAuth to <code>/api/deliver/dynamic/{{ api_key_mask }}…</code> (your API key). Use it as the delivery URL on each dynamic product.</p>
+      {% if secret_set == '1' %}<p class="dim" style="font-size:0.8rem;color:var(--green);">Secret saved.</p>{% endif %}
+    </div>
       <div class="page-head">
         <div><h4>Discord Account</h4><p class="muted">Link Discord to receive a 2FA code and delivery alerts by DM.</p></div>
         <a href="/reseller/discord" class="btn btn-ghost btn-sm">Manage →</a>

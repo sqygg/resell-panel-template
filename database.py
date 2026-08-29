@@ -207,7 +207,8 @@ def _ddl_init() -> str:
             email_2fa_code TEXT NOT NULL DEFAULT '',
             email_2fa_exp TEXT NOT NULL DEFAULT '',
             email_2fa_attempts INTEGER NOT NULL DEFAULT 0,
-            email_2fa_sent_at TEXT NOT NULL DEFAULT ''
+            email_2fa_sent_at TEXT NOT NULL DEFAULT '',
+            sellauth_webhook_secret TEXT NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS referrals (
@@ -439,6 +440,7 @@ def _migrate():
         add_col("email_2fa_exp", "TEXT NOT NULL DEFAULT ''")
         add_col("email_2fa_attempts", "INTEGER NOT NULL DEFAULT 0")
         add_col("email_2fa_sent_at", "TEXT NOT NULL DEFAULT ''")
+        add_col("sellauth_webhook_secret", "TEXT NOT NULL DEFAULT ''")
 
         # Backfill api_key_hash from decrypted keys (only if missing)
         if "api_key_hash" in existing:
@@ -838,6 +840,38 @@ def get_sellauth_email(reseller_id: int) -> str:
     finally:
         conn.close()
     return (row["sellauth_email"] or "") if row else ""
+
+
+def set_sellauth_webhook_secret(reseller_id: int, secret: str, ip: str = "") -> None:
+    """Store the reseller's SellAuth dynamic-delivery webhook secret (HMAC key),
+    encrypted at rest. Empty string clears it (falls back to global secret)."""
+    secret = (secret or "").strip()
+    enc = _encrypt_key(secret) if secret else ""
+    now = _now_iso()
+    conn = get_db()
+    try:
+        _exec(conn, "UPDATE resellers SET sellauth_webhook_secret = ?, updated_at = ? WHERE id = ?",
+              (enc, now, reseller_id))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit("reseller_sellauth_secret_set", reseller_id, f"set={bool(secret)}", ip)
+
+
+def get_sellauth_webhook_secret(reseller_id: int) -> str:
+    """Decrypt the reseller's stored SellAuth webhook secret, or '' if none."""
+    conn = get_db()
+    try:
+        row = conn.execute(_ph("SELECT sellauth_webhook_secret FROM resellers WHERE id = ?"), (reseller_id,)).fetchone()
+    finally:
+        conn.close()
+    enc = (row["sellauth_webhook_secret"] or "") if row else ""
+    if not enc:
+        return ""
+    try:
+        return _decrypt_key(enc)
+    except Exception:
+        return ""
 
 
 # ---------- Email-link 2FA (SellAuth-style 6-digit code) ----------
