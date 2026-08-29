@@ -554,7 +554,7 @@ def reseller_referrals(request: Request):
 @router.get("/reseller/orders", response_class=HTMLResponse)
 def reseller_orders_page(request: Request):
     r = require_reseller(request)
-    orders = db.get_reseller_manual_orders(r["id"])
+    orders = db.get_orders(r["id"])
     return templates.TemplateResponse("reseller_orders.html", _brand_ctx(
         request=request, reseller=r, orders=orders))
 
