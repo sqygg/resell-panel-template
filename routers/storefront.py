@@ -223,7 +223,9 @@ def reseller_api_page(request: Request):
     return templates.TemplateResponse("reseller_api.html", _brand_ctx(
         request=request, reseller=r, api_key_mask=masked,
         balance=balance_info["balance"], balance_source=balance_info["source"],
-        sellauth_email=balance_info["email"]))
+        sellauth_email=balance_info["email"],
+        code=request.query_params.get("code", ""),
+        resent=request.query_params.get("resent", "")))
 
 
 @router.get("/reseller/api/key", response_class=JSONResponse)
@@ -262,8 +264,53 @@ def reseller_link_sellauth(request: Request, email: str = Form("")):
     import re
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         return HTMLResponse("<script>alert('Enter a valid email address.');window.location='/reseller/api';</script>")
-    db.set_sellauth_email(r["id"], email, ip=get_client_ip(request))
+    # Generate a SellAuth-style 6-digit 2FA code, store hashed, email it.
+    code = f"{_secrets.randbelow(1000000):06d}"  # 000000-999999
+    db.set_email_2fa(r["id"], code, ttl_seconds=600)
+    from services.mailer import send_2fa_code
+    sent = send_2fa_code(email, code)
+    ip = get_client_ip(request)
+    db._audit("reseller_email_2fa_sent", r["id"], f"email={email} sent={sent}", ip)
+    if not sent:
+        return HTMLResponse("<script>alert('Could not send the verification code (SMTP not configured). Contact the store owner.');window.location='/reseller/api';</script>")
+    # Stash the pending email in session so step 2 knows the target.
+    sid = request.cookies.get("store_session", "")
+    if sid in _store_sessions:
+        _store_sessions[sid]["pending_email"] = email
+    return RedirectResponse(url="/reseller/api?code=1", status_code=303)
+
+
+@router.post("/reseller/api/link-sellauth/verify")
+def reseller_link_sellauth_verify(request: Request, code: str = Form("")):
+    r = require_reseller(request)
+    code = (code or "").strip()
+    if not db.verify_email_2fa(r["id"], code):
+        return HTMLResponse("<script>alert('Invalid or expired code. Request a new one.');window.location='/reseller/api?code=1';</script>")
+    sid = request.cookies.get("store_session", "")
+    pending = _store_sessions.get(sid, {}).get("pending_email", "")
+    if not pending:
+        return HTMLResponse("<script>alert('Session expired. Start over.');window.location='/reseller/api';</script>")
+    db.set_sellauth_email(r["id"], pending, ip=get_client_ip(request))
+    db.clear_email_2fa(r["id"])
+    if sid in _store_sessions:
+        _store_sessions[sid].pop("pending_email", None)
     return RedirectResponse(url="/reseller/api?linked=1", status_code=303)
+
+
+@router.post("/reseller/api/link-sellauth/resend")
+def reseller_link_sellauth_resend(request: Request):
+    r = require_reseller(request)
+    sid = request.cookies.get("store_session", "")
+    pending = _store_sessions.get(sid, {}).get("pending_email", "")
+    if not pending:
+        return HTMLResponse("<script>alert('No pending link. Enter your email again.');window.location='/reseller/api';</script>")
+    code = f"{_secrets.randbelow(1000000):06d}"
+    db.set_email_2fa(r["id"], code, ttl_seconds=600)
+    from services.mailer import send_2fa_code
+    sent = send_2fa_code(pending, code)
+    if not sent:
+        return HTMLResponse("<script>alert('Could not resend (SMTP not configured).');window.location='/reseller/api?code=1';</script>")
+    return RedirectResponse(url="/reseller/api?code=1&resent=1", status_code=303)
 
 
 # ---------- Reseller Discord account linking (OAuth) ----------

@@ -61,6 +61,13 @@ class Settings:
     NTFY_TOPIC: str = os.getenv("NTFY_TOPIC", "")
     NTFY_SERVER: str = os.getenv("NTFY_SERVER", "https://ntfy.angelatos.gr")
 
+    # ---------- SMTP (2FA / transactional email) ----------
+    SMTP_HOST: str = os.getenv("SMTP_HOST", "")
+    SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
+    SMTP_USER: str = os.getenv("SMTP_USER", "")
+    SMTP_PASS: str = os.getenv("SMTP_PASS", "")
+    SMTP_FROM: str = os.getenv("SMTP_FROM", "")
+
     # ---------- Production ----------
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
     ENVIRONMENT: str = os.getenv("ENVIRONMENT", "production")

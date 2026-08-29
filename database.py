@@ -105,7 +105,9 @@ def init_db():
             last_used_at TEXT,
             request_count INTEGER NOT NULL DEFAULT 0,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
-            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            email_2fa_code TEXT NOT NULL DEFAULT '',
+            email_2fa_exp TEXT NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS referrals (
@@ -273,6 +275,10 @@ def _migrate():
         conn.execute("ALTER TABLE resellers ADD COLUMN discord_username TEXT NOT NULL DEFAULT ''")
     if "discord_linked_at" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN discord_linked_at TEXT NOT NULL DEFAULT ''")
+    if "email_2fa_code" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN email_2fa_code TEXT NOT NULL DEFAULT ''")
+    if "email_2fa_exp" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN email_2fa_exp TEXT NOT NULL DEFAULT ''")
     if "channel" not in [c[1] for c in conn.execute("PRAGMA table_info(orders)").fetchall()]:
         conn.execute("ALTER TABLE orders ADD COLUMN channel TEXT NOT NULL DEFAULT 'manual'")
     conn.commit()
@@ -602,6 +608,59 @@ def get_sellauth_email(reseller_id: int) -> str:
     row = conn.execute("SELECT sellauth_email FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
     conn.close()
     return (row["sellauth_email"] or "") if row else ""
+
+
+# ---------- Email-link 2FA (SellAuth-style 6-digit code) ----------
+
+def _now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def set_email_2fa(reseller_id: int, code: str, ttl_seconds: int = 600) -> None:
+    """Store a hashed 2FA code with an expiry timestamp. Code is hashed (never plaintext)."""
+    from datetime import timedelta
+    hashed = hashlib.sha256(code.encode()).hexdigest()
+    exp_dt = datetime.now(timezone.utc) + timedelta(seconds=ttl_seconds)
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET email_2fa_code = ?, email_2fa_exp = ? WHERE id = ?",
+        (hashed, exp_dt.isoformat(), reseller_id),
+    )
+    conn.commit()
+    conn.close()
+
+
+def verify_email_2fa(reseller_id: int, code: str) -> bool:
+    """Constant-time verify of the 2FA code. Returns True if valid + unexpired."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT email_2fa_code, email_2fa_exp FROM resellers WHERE id = ?", (reseller_id,)
+    ).fetchone()
+    conn.close()
+    if not row:
+        return False
+    stored_hash = row["email_2fa_code"] or ""
+    exp = row["email_2fa_exp"] or ""
+    if not stored_hash or not exp:
+        return False
+    try:
+        exp_dt = datetime.fromisoformat(exp)
+    except (ValueError, TypeError):
+        return False
+    if exp_dt < datetime.now(timezone.utc):
+        return False
+    guess_hash = hashlib.sha256((code or "").encode()).hexdigest()
+    return hmac.compare_digest(guess_hash, stored_hash)
+
+
+def clear_email_2fa(reseller_id: int) -> None:
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET email_2fa_code = '', email_2fa_exp = '' WHERE id = ?",
+        (reseller_id,),
+    )
+    conn.commit()
+    conn.close()
 
 
 def get_sellauth_balance(reseller_id: int, force: bool = False) -> dict:
