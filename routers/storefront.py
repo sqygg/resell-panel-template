@@ -554,9 +554,10 @@ def reseller_referrals(request: Request):
 @router.get("/reseller/orders", response_class=HTMLResponse)
 def reseller_orders_page(request: Request):
     r = require_reseller(request)
-    orders = db.get_orders(r["id"])
+    sort = request.query_params.get("sort", "latest")
+    orders = db.get_orders(r["id"], asc=(sort == "oldest"))
     return templates.TemplateResponse("reseller_orders.html", _brand_ctx(
-        request=request, reseller=r, orders=orders))
+        request=request, reseller=r, orders=orders, sort=sort))
 
 
 # NOTE: legacy POST /reseller/order/{product_id} "Dispense" flow removed; buy via /reseller/buy.

@@ -2,7 +2,7 @@
 {% block title %}Orders · Astro Panel{% endblock %}
 {% block content %}
 <div class="page"><div class="container">
-  <div class="page-head"><div><h1>Your Orders</h1><p class="muted">All your purchases — manual (Buy Keys / catalog) and SellAuth webhook deliveries. Keys shown here are the deliverables pushed to your customers.</p></div><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div>
+  <div class="page-head"><div><h1>Your Orders</h1><p class="muted">All your purchases — manual (Buy Keys / catalog) and SellAuth webhook deliveries. Keys shown here are the deliverables pushed to your customers.</p></div><div style="display:flex;gap:0.5rem;align-items:center;"><span class="dim" style="font-size:0.8rem;">Sort:</span><a href="/reseller/orders?sort=latest" class="btn btn-sm {% if sort=='latest' %}btn-primary{% else %}btn-ghost{% endif %}">Latest</a><a href="/reseller/orders?sort=oldest" class="btn btn-sm {% if sort=='oldest' %}btn-primary{% else %}btn-ghost{% endif %}">Oldest</a><a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a></div></div>
   <div class="table-wrap">
     <table><thead><tr><th>#</th><th>Product</th><th>Qty</th><th>Total</th><th>Status</th><th>Source</th><th>Date</th><th>Key</th></tr></thead><tbody>
     {% for o in orders %}
@@ -11,7 +11,7 @@
         <td>{{ o.quantity }}</td><td class="green">${{ "%.2f"|format(o.total_price) }}</td>
         <td>{% if o.status=='pending' %}<span class="badge badge-neutral">Pending</span>{% elif o.status=='completed' or o.status=='delivered' %}<span class="badge badge-active">Done</span>{% elif o.status=='failed' %}<span class="badge badge-inactive">Failed</span>{% else %}<span class="badge badge-neutral">{{ o.status }}</span>{% endif %}</td>
         <td>{% if o.channel == 'webhook' %}<span class="badge badge-active">Webhook</span>{% else %}<span class="badge badge-neutral">{{ o.channel or 'manual' }}</span>{% endif %}</td>
-        <td class="dim" style="font-size:0.8rem;">{{ o.created_at[:16] }}</td>
+        <td class="dim" style="font-size:0.8rem;white-space:nowrap;">{{ o.created_at[:16].replace('T',' ') }}</td>
         <td>{% if o.deliverable %}<button class="btn btn-ghost btn-sm" onclick="revealDeliverable({{ o.id }}, this)">Show key</button><div id="deliv-{{ o.id }}" style="display:none;margin-top:0.5rem;"><code style="display:block;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.78rem;white-space:pre-wrap;word-break:break-all;">{{ o.deliverable }}</code></div>{% else %}<span class="dim">—</span>{% endif %}</td></tr>
     {% endfor %}
     {% if not orders %}<tr><td colspan="8" class="dim" style="text-align:center;padding:2rem;">No orders yet. Buy keys from the catalog or accept a SellAuth delivery to see them here.</td></tr>{% endif %}

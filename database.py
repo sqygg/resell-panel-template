@@ -1316,10 +1316,11 @@ def get_reseller_manual_orders(reseller_id: int, limit: int = 50) -> list[dict]:
     return [dict(r) for r in rows]
 
 
-def get_orders(reseller_id: int, limit: int = 50) -> list[dict]:
+def get_orders(reseller_id: int, limit: int = 50, asc: bool = False) -> list[dict]:
     conn = get_db()
     try:
-        rows = conn.execute(_ph("SELECT * FROM orders WHERE reseller_id = ? ORDER BY created_at DESC LIMIT ?"),
+        order = "ASC" if asc else "DESC"
+        rows = conn.execute(_ph(f"SELECT * FROM orders WHERE reseller_id = ? ORDER BY created_at {order}, id {order} LIMIT ?"),
             (reseller_id, limit)).fetchall()
     finally:
         conn.close()
