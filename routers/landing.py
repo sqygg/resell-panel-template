@@ -3,6 +3,7 @@ import os
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
+from routers.storefront import get_store_reseller
 
 router = APIRouter(tags=["site"])
 templates = Jinja2Templates(directory="templates")
@@ -45,8 +46,11 @@ def landing(request: Request):
 
 @router.get("/api-docs", response_class=HTMLResponse)
 def api_docs(request: Request):
-    """Reseller API documentation (public)."""
-    return templates.TemplateResponse("api_docs.html", {"request": request})
+    """Reseller API documentation."""
+    return templates.TemplateResponse(
+        "api_docs.html",
+        {"request": request, "reseller": get_store_reseller(request)},
+    )
 
 
 @router.get("/block", response_class=HTMLResponse)
