@@ -11,6 +11,42 @@
       <a href="/reseller/buy" class="btn btn-primary">Browse products</a>
     </div>
 
+    {% if not reseller.discord_id %}
+    <div class="card" style="padding:1rem 1.25rem;margin-bottom:1.5rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;border-color:rgba(99,102,241,.4);">
+      <div>
+        <h4 style="margin:0 0 .25rem;font-size:1rem;">Secure your account with Discord</h4>
+        <p class="muted" style="margin:0;font-size:.85rem;">Link Discord to receive a 2FA code and delivery alerts by DM.</p>
+      </div>
+      <a href="/reseller/discord" class="btn btn-primary btn-sm">Link Discord</a>
+    </div>
+    {% endif %}
+
+    <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+      <div class="card" style="padding:1.5rem;">
+        <div class="chart-title">Spend — last 7 days</div>
+        {% set max_spend = spend_series | map(attribute='total') | list | max or 1 %}
+        <div class="barchart">
+          {% for s in spend_series %}
+          <div class="bar-col">
+            <span class="bar-val">{% if s.total > 0 %}${{ "%.0f"|format(s.total) }}{% endif %}</span>
+            <div class="bar{% if s.total == 0 %} zero{% endif %}" style="height: {{ ((s.total / max_spend) * 100) | round | int }}%"></div>
+            <span class="bar-label">{{ s.day }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="card" style="padding:1.5rem;">
+        <div class="chart-title">Orders by status</div>
+        {% set sc = status_counts %}
+        {% set max_sc = [sc.pending, sc.completed, sc.failed] | max or 1 %}
+        <div class="hbarchart">
+          <div class="hrow"><span class="hname">Completed</span><div class="htrack"><div class="hfill" style="width: {{ ((sc.completed / max_sc) * 100) | round | int }}%;background:linear-gradient(90deg,#22c55e,#16a34a);"></div></div><span class="hval">{{ sc.completed }}</span></div>
+          <div class="hrow"><span class="hname">Pending</span><div class="htrack"><div class="hfill" style="width: {{ ((sc.pending / max_sc) * 100) | round | int }}%;background:linear-gradient(90deg,#eab308,#ca8a04);"></div></div><span class="hval">{{ sc.pending }}</span></div>
+          <div class="hrow"><span class="hname">Failed</span><div class="htrack"><div class="hfill" style="width: {{ ((sc.failed / max_sc) * 100) | round | int }}%;background:linear-gradient(90deg,#ef4444,#b91c1c);"></div></div><span class="hval">{{ sc.failed }}</span></div>
+        </div>
+      </div>
+    </div>
+
     <div class="cards">
       <div class="card">
         <div class="label">Balance</div>

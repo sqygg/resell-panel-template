@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ brand_name }}</title>
+    <title>{% block title %}{{ brand_name }}{% endblock %}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -129,6 +129,18 @@
         .btn-danger { background: var(--red-soft); color: var(--red); }
         .btn-danger:hover { background: rgba(239,68,68,0.22); }
         .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; }
+        .copy-btn { transition: all 0.15s; }
+        .copy-btn:hover { background: rgba(124,92,255,0.14); border-color: var(--accent); color: #fff; }
+        .copy-btn.copied { color: var(--green); border-color: var(--green); background: var(--green-soft); }
+        .btn:active { transform: scale(.97); }
+        .secret { filter: blur(6px); user-select: none; transition: filter 0.15s; }
+        .secret.revealed { filter: none; user-select: auto; }
+        .secret-toggle { cursor: pointer; }
+        .check { display: inline-block; width: 18px; height: 18px; position: relative; }
+        .check::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px;
+          border: solid var(--green); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+        .success-circle { width: 56px; height: 56px; border-radius: 50%; background: var(--green-soft);
+          color: var(--green); display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
 
         /* ---------- Forms ---------- */
         .form-group { margin-bottom: 1.1rem; }
@@ -203,6 +215,64 @@
 {% endif %}
 
 {% block content %}{% endblock %}
+
+<script>
+  // Global clipboard copy (secure API + execCommand fallback for http/insecure)
+  window.__astroCopy = function (text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      return navigator.clipboard.writeText(text).catch(function () { return legacyCopy(text); });
+    }
+    return Promise.resolve(legacyCopy(text));
+  };
+  function legacyCopy(text) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-9999px';
+      ta.setAttribute('readonly', '');
+      document.body.appendChild(ta); ta.select();
+      ta.setSelectionRange(0, ta.value.length);
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return ok;
+    } catch (e) { return false; }
+  }
+  function flashCopied(btn) {
+    btn.classList.add('copied');
+    var prev = btn.dataset.label || btn.textContent;
+    btn.dataset.label = prev;
+    btn.textContent = 'Copied';
+    setTimeout(function () { btn.classList.remove('copied'); btn.textContent = btn.dataset.label; }, 1400);
+  }
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('.copy-btn');
+    if (!btn) return;
+    var text;
+    if (btn.dataset.copyTarget) {
+      var el = document.getElementById(btn.dataset.copyTarget) || document.querySelector(btn.dataset.copyTarget);
+      if (!el) return;
+      text = (el.value !== undefined ? el.value : el.textContent).trim();
+    } else {
+      text = (btn.dataset.copy || '').trim();
+    }
+    if (!text) return;
+    e.preventDefault();
+    window.__astroCopy(text).then(function (ok) {
+      if (!ok) { alert('Copy failed — select and copy manually.'); return; }
+      flashCopied(btn);
+    });
+  });
+
+  // Secret visibility toggle (blur / reveal)
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('[data-secret-toggle]');
+    if (!t) return;
+    var id = t.getAttribute('data-secret-toggle');
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('revealed');
+    t.textContent = el.classList.contains('revealed') ? 'Hide' : 'Show';
+  });
+</script>
 
 </body>
 </html>

@@ -32,6 +32,14 @@ class Settings:
     # ---------- Discord ----------
     DISCORD_BOT_TOKEN: str = os.getenv("DISCORD_BOT_TOKEN", "")
     DISCORD_OWNER_ID: str = os.getenv("DISCORD_OWNER_ID", "")
+    # OAuth app credentials (for reseller Discord account linking)
+    DISCORD_CLIENT_ID: str = os.getenv("DISCORD_CLIENT_ID", "")
+    DISCORD_CLIENT_SECRET: str = os.getenv("DISCORD_CLIENT_SECRET", "")
+    # Redirect URI must be registered in the Discord dev portal. Derived from PUBLIC_URL.
+    @property
+    def DISCORD_OAUTH_REDIRECT_URI(self) -> str:
+        base = self.PUBLIC_URL.rstrip("/")
+        return f"{base}/reseller/discord/callback" if base else ""
 
     # ---------- Branding ----------
     # Origins allowed to embed the panel in an iframe (CSP frame-ancestors).
@@ -69,6 +77,10 @@ class Settings:
             warnings.append("SELLAUTH_SHOP_ID is not set — stock will not load")
         if not self.ADMIN_PASSWORD or self.ADMIN_PASSWORD == "admin":
             warnings.append("ADMIN_PASSWORD is weak or default — change it in .env")
+        if not self.DISCORD_CLIENT_ID or not self.DISCORD_CLIENT_SECRET:
+            warnings.append("DISCORD_CLIENT_ID/SECRET not set — reseller Discord linking disabled")
+        if not self.PUBLIC_URL:
+            warnings.append("PUBLIC_URL not set — OAuth redirect URI cannot be built")
         if self.DEBUG:
             warnings.append("DEBUG is enabled — disable in production")
 

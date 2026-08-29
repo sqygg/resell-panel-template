@@ -1,9 +1,10 @@
 """Astro Reseller Panel — storefront: /auth, /apply, /reseller (dashboard + catalog + orders + balance + referrals)."""
 import os
 import uuid
+import time
 import httpx
 from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 import database as db
 from security import get_client_ip
@@ -15,6 +16,15 @@ router = APIRouter(tags=["store"])
 templates = Jinja2Templates(directory="templates")
 
 _store_sessions: dict[str, dict] = {}
+_STORE_SESSION_TTL = 86400
+
+
+def _sweep_store_sessions():
+    """Drop expired reseller sessions (in-memory store). Called on each lookup."""
+    now = time.time()
+    expired = [sid for sid, s in _store_sessions.items() if not s.get("exp") or now > s["exp"]]
+    for sid in expired:
+        _store_sessions.pop(sid, None)
 
 
 def _brand_ctx(**extra) -> dict:
@@ -29,6 +39,7 @@ def _brand_ctx(**extra) -> dict:
 
 
 def get_store_reseller(request: Request) -> dict | None:
+    _sweep_store_sessions()
     sid = request.cookies.get("store_session", "")
     return _store_sessions.get(sid)
 
@@ -63,8 +74,8 @@ def auth_action(request: Request, email: str = Form(...), password: str = Form(.
         "name": reseller["name"],
         "email": reseller.get("email", ""),
         "discount": reseller["discount_percent"],
-        "api_key": db.reveal_api_key(reseller["id"]) or "",
         "referral_code": reseller.get("referral_code", ""),
+        "exp": time.time() + _STORE_SESSION_TTL,
     }
     resp = RedirectResponse(url="/reseller", status_code=303)
     resp.set_cookie("store_session", sid, httponly=True, samesite="strict", max_age=86400)
@@ -120,16 +131,39 @@ def apply_submit(
 def reseller_dashboard(request: Request):
     r = require_reseller(request)
     balance_info = db.get_sellauth_balance(r["id"])
-    orders = db.get_orders(r["id"], limit=10)
+    all_orders = db.get_orders(r["id"], limit=1000)
+    orders = all_orders[:10]
     referrals = db.get_referrals(r["id"])
-    total_spent = sum(o["total_price"] for o in db.get_orders(r["id"], limit=1000))
-    total_orders = len(db.get_orders(r["id"], limit=1000))
+    total_spent = sum(o["total_price"] for o in all_orders)
+    total_orders = len(all_orders)
     referral_earned = sum(x["total_earned"] for x in referrals)
+
+    # --- Chart data: 7-day spend series + order status breakdown ---
+    from collections import defaultdict
+    import datetime as _dt
+    today = _dt.date.today()
+    spend_by_day = defaultdict(float)
+    status_counts = defaultdict(int)
+    for o in all_orders:
+        status_counts[o.get("status", "pending")] += 1
+        try:
+            d = _dt.datetime.strptime(o["created_at"][:10], "%Y-%m-%d").date()
+        except (ValueError, KeyError, TypeError):
+            continue
+        spend_by_day[d.isoformat()] += float(o.get("total_price", 0) or 0)
+    spend_series = []
+    for i in range(6, -1, -1):
+        day = (today - _dt.timedelta(days=i)).isoformat()
+        spend_series.append({"day": day[5:], "total": round(spend_by_day.get(day, 0.0), 2)})
+
     return templates.TemplateResponse("reseller_dashboard.html", _brand_ctx(
         request=request, reseller=r, balance=balance_info["balance"], balance_source=balance_info["source"],
         sellauth_email=balance_info["email"], orders=orders,
         referrals=referrals, total_spent=total_spent, total_orders=total_orders,
         referral_earned=referral_earned, referral_count=len(referrals),
+        spend_series=spend_series,
+        status_counts={"pending": status_counts.get("pending", 0), "completed": status_counts.get("completed", 0),
+                       "failed": status_counts.get("failed", 0)},
     ))
 
 
@@ -143,15 +177,16 @@ def reseller_catalog(request: Request):
     df = 1 - (r["discount"] / 100)
     base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     for p in products:
-        p["reseller_price"] = round(p["price"] * df, 2)
+        p["reseller_price"] = db.effective_price(str(p["id"]), "", r["discount"], p["price"])
         for v in p.get("variants", []):
-            v["reseller_price"] = round(v["price"] * df, 2)
+            v["reseller_price"] = db.effective_price(str(p["id"]), str(v.get("variant_id", "")), r["discount"], v["price"])
             key = (str(p["id"]), str(v.get("variant_id", "")))
             alias = alias_map.get(key)
             if alias:
                 v["delivery_url"] = f"{base}/api/deliver/{alias}"
-            elif r.get("api_key"):
-                v["delivery_url"] = f"{base}/api/deliver/{r['api_key']}/product/{p['id']}?variant_id={v['variant_id']}"
+            elif r.get("api_key_prefix"):
+                # Delivery URL embeds the API key (shareable link for customers).
+                v["delivery_url"] = f"{base}/api/deliver/{db.reveal_api_key(r['id'])}/product/{p['id']}?variant_id={v['variant_id']}"
             else:
                 v["delivery_url"] = ""
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
@@ -183,10 +218,21 @@ def reseller_alias_revoke(request: Request, product_id: str, variant_id: str = F
 def reseller_api_page(request: Request):
     r = require_reseller(request)
     balance_info = db.get_sellauth_balance(r["id"])
+    # Never send the raw key to the frontend — only a masked prefix for display.
+    masked = (r.get("api_key_prefix") or "") + "…"
     return templates.TemplateResponse("reseller_api.html", _brand_ctx(
-        request=request, reseller=r, api_key=r.get("api_key", ""),
+        request=request, reseller=r, api_key_mask=masked,
         balance=balance_info["balance"], balance_source=balance_info["source"],
         sellauth_email=balance_info["email"]))
+
+
+@router.get("/reseller/api/key", response_class=JSONResponse)
+def reseller_api_key(request: Request):
+    """Return the reseller's API key. Only when authenticated — keeps the key
+    out of the initial page HTML (no key in DOM until explicitly revealed)."""
+    r = require_reseller(request)
+    key = db.reveal_api_key(r["id"]) or ""
+    return JSONResponse({"api_key": key})
 
 
 @router.post("/reseller/api/sync")
@@ -204,10 +250,7 @@ def reseller_api_regen(request: Request):
     r = require_reseller(request)
     result = db.regenerate_api_key(r["id"])
     new_key = result.get("api_key", "") if result else ""
-    # update session key
-    sid = request.cookies.get("store_session", "")
-    if sid in _store_sessions:
-        _store_sessions[sid]["api_key"] = new_key
+    # Key is shown once on the regen page only; never stored in the session.
     return templates.TemplateResponse("reseller_api_regen.html", _brand_ctx(
         request=request, reseller=r, new_key=new_key))
 
@@ -223,6 +266,110 @@ def reseller_link_sellauth(request: Request, email: str = Form("")):
     return RedirectResponse(url="/reseller/api?linked=1", status_code=303)
 
 
+# ---------- Reseller Discord account linking (OAuth) ----------
+import secrets as _secrets
+import urllib.parse as _urlparse
+_DISCORD_OAUTH_SCOPE = "identify"
+
+
+@router.get("/reseller/discord")
+def reseller_discord_page(request: Request):
+    """Settings widget showing Discord link status + link button."""
+    r = require_reseller(request)
+    linked = bool(r.get("discord_id"))
+    discord_cfg_ok = bool(settings.DISCORD_CLIENT_ID and settings.DISCORD_OAUTH_REDIRECT_URI)
+    return templates.TemplateResponse("reseller_discord.html", _brand_ctx(
+        request=request, reseller=r, linked=linked,
+        discord_username=r.get("discord_username", ""),
+        discord_cfg_ok=discord_cfg_ok,
+    ))
+
+
+@router.get("/reseller/discord/start")
+def reseller_discord_start(request: Request):
+    """Begin OAuth: issue state cookie, redirect to Discord authorize URL."""
+    r = require_reseller(request)
+    if not (settings.DISCORD_CLIENT_ID and settings.DISCORD_OAUTH_REDIRECT_URI):
+        return HTMLResponse("<script>alert('Discord linking is not configured.');window.location='/reseller/discord';</script>")
+    state = _secrets.token_urlsafe(24)
+    # stash reseller id bound to state to prevent CSRF / link hijack
+    resp = RedirectResponse(
+        "https://discord.com/api/oauth2/authorize?" + _urlparse.urlencode({
+            "client_id": settings.DISCORD_CLIENT_ID,
+            "redirect_uri": settings.DISCORD_OAUTH_REDIRECT_URI,
+            "response_type": "code",
+            "scope": _DISCORD_OAUTH_SCOPE,
+            "state": state,
+            "prompt": "consent",
+        }),
+        status_code=303,
+    )
+    resp.set_cookie("discord_oauth_state", state, httponly=True, samesite="strict", max_age=600)
+    return resp
+
+
+@router.get("/reseller/discord/callback")
+def reseller_discord_callback(request: Request, code: str = "", state: str = ""):
+    """Exchange code for a user token, read identity, store the link."""
+    r = require_reseller(request)
+    # verify state
+    expected = request.cookies.get("discord_oauth_state", "")
+    if not code or not state or not expected or not _compare_state(state, expected):
+        resp = HTMLResponse("<script>alert('Link failed: invalid state.');window.location='/reseller/discord';</script>")
+        resp.delete_cookie("discord_oauth_state")
+        return resp
+    if not (settings.DISCORD_CLIENT_ID and settings.DISCORD_CLIENT_SECRET and settings.DISCORD_OAUTH_REDIRECT_URI):
+        return HTMLResponse("<script>alert('Discord linking is not configured.');window.location='/reseller/discord';</script>")
+    try:
+        token = _exchange_discord_code(code)
+        identity = _discord_identify(token)
+    except Exception as e:
+        safe = str(e).replace("\\", "").replace("'", "").replace('"', "")[:200]
+        return HTMLResponse(f"<script>alert('Discord error: {safe}');window.location='/reseller/discord';</script>")
+    db.link_reseller_discord(r["id"], str(identity["id"]), identity.get("username", ""), ip=get_client_ip(request))
+    resp = RedirectResponse(url="/reseller/discord?linked=1", status_code=303)
+    resp.delete_cookie("discord_oauth_state")
+    return resp
+
+
+@router.post("/reseller/discord/unlink")
+def reseller_discord_unlink(request: Request):
+    r = require_reseller(request)
+    db.unlink_reseller_discord(r["id"], ip=get_client_ip(request))
+    return RedirectResponse(url="/reseller/discord?unlinked=1", status_code=303)
+
+
+def _compare_state(a: str, b: str) -> bool:
+    import hmac
+    return hmac.compare_digest(a, b)
+
+
+def _exchange_discord_code(code: str) -> str:
+    """Exchange authorization code for a user access token. Returns the token."""
+    data = {
+        "client_id": settings.DISCORD_CLIENT_ID,
+        "client_secret": settings.DISCORD_CLIENT_SECRET,
+        "grant_type": "authorization_code",
+        "code": code,
+        "redirect_uri": settings.DISCORD_OAUTH_REDIRECT_URI,
+    }
+    resp = httpx.post("https://discord.com/api/oauth2/token", data=data,
+                      headers={"Content-Type": "application/x-www-form-urlencoded"}, timeout=15)
+    resp.raise_for_status()
+    return resp.json()["access_token"]
+
+
+def _discord_identify(token: str) -> dict:
+    """GET /users/@me using the user token. Returns id + username."""
+    resp = httpx.get("https://discord.com/api/users/@me",
+                     headers={"Authorization": f"Bearer {token}"}, timeout=15)
+    resp.raise_for_status()
+    u = resp.json()
+    if not u.get("id"):
+        raise ValueError("No Discord user id returned")
+    return u
+
+
 @router.get("/reseller/buy", response_class=HTMLResponse)
 def reseller_buy_page(request: Request):
     r = require_reseller(request)
@@ -231,19 +378,19 @@ def reseller_buy_page(request: Request):
     df = 1 - (r["discount"] / 100)
     base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     for p in products:
-        p["reseller_price"] = round(p["price"] * df, 2)
+        p["reseller_price"] = db.effective_price(str(p["id"]), "", r["discount"], p["price"])
         for v in p.get("variants", []):
-            v["reseller_price"] = round(v["price"] * df, 2)
+            v["reseller_price"] = db.effective_price(str(p["id"]), str(v.get("variant_id", "")), r["discount"], v["price"])
     return templates.TemplateResponse("reseller_buy.html", _brand_ctx(
         request=request, reseller=r, products=products, balance=balance_info["balance"],
         balance_source=balance_info["source"], sellauth_email=balance_info["email"],
-        api_key=r.get("api_key", ""), base=base))
+        base=base))
 
 
 @router.post("/reseller/buy/submit", response_class=HTMLResponse)
 def reseller_buy_submit(request: Request, product_id: str = Form(...), variant_id: str = Form(""), quantity: int = Form(1)):
     r = require_reseller(request)
-    api_key = r.get("api_key", "")
+    api_key = db.reveal_api_key(r["id"]) or ""
     if not api_key:
         return HTMLResponse("<script>alert('No API key set — contact store owner');window.location='/reseller/buy';</script>")
     # Reuse the exact same delivery core as the API (balance gate, stock dispense, deduct)
@@ -295,61 +442,4 @@ def reseller_orders_page(request: Request):
         request=request, reseller=r, orders=orders))
 
 
-# ---------- Place Order (dispense key from SellAuth stock) ----------
-
-def _safe_float(val, default=0.0) -> float:
-    """SellAuth sometimes returns price as None/string. Never crash on it."""
-    try:
-        if val is None or val == "":
-            return default
-        return float(val)
-    except (TypeError, ValueError):
-        return default
-
-
-@router.post("/reseller/order/{product_id}")
-def reseller_order_submit(
-    request: Request, product_id: str,
-    variant_id: str = Form(""), quantity: int = Form(1), customer_email: str = Form(""),
-):
-    r = require_reseller(request)
-    product = sellauth.get_product(product_id)
-    if not product:
-        return HTMLResponse("<script>alert('Product not found');window.location='/reseller/catalog';</script>")
-    df = 1 - (r["discount"] / 100)
-    variant_name = "Default"
-    unit_price = _safe_float(product.get("price"))
-    variant_sellauth_id = None
-    for v in product.get("variants", []) or []:
-        if str(v.get("id")) == variant_id or not variant_id:
-            variant_sellauth_id = v.get("id")
-            variant_name = v.get("name", "Default")
-            unit_price = _safe_float(v.get("price"), unit_price)
-            break
-    reseller_price = round(unit_price * df, 2)
-    total = round(reseller_price * quantity, 2)
-    if total <= 0:
-        return HTMLResponse("<script>alert('Invalid order total');window.location='/reseller/catalog';</script>")
-    balance = db.get_balance(r["id"])
-    if balance < total:
-        return HTMLResponse(f"<script>alert('Insufficient balance. Need ${total:.2f}, have ${balance:.2f}');window.location='/reseller/catalog';</script>")
-    # Dispense a real key from SellAuth stock (only charge if we actually got one)
-    delivered = ""
-    try:
-        delivered = sellauth.dispense_one(product_id, variant_sellauth_id or product.get("variants", [{}])[0].get("id"))
-    except Exception:
-        delivered = ""
-    if not delivered:
-        return HTMLResponse("<script>alert('Out of stock — key could not be dispensed');window.location='/reseller/catalog';</script>")
-    order = db.create_order(
-        reseller_id=r["id"], product_id=product_id, product_name=product.get("name", "Unknown"),
-        variant_name=variant_name, quantity=quantity, price_per_unit=reseller_price,
-        total_price=total, customer_email=customer_email, deliverable=delivered,
-    )
-    if not order:
-        return HTMLResponse("<script>alert('Order failed — please retry');window.location='/reseller/catalog';</script>")
-    db.deduct_balance(r["id"], total, order["id"], f"Order #{order['id']}: {product.get('name')} x{quantity}")
-    db.credit_referral_commission(r["id"], total)
-    return templates.TemplateResponse("reseller_order_done.html", _brand_ctx(
-        request=request, reseller=r, order=order, deliverable=delivered,
-        new_balance=db.get_balance(r["id"])))
+# NOTE: legacy POST /reseller/order/{product_id} "Dispense" flow removed; buy via /reseller/buy.

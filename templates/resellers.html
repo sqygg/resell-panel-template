@@ -29,16 +29,19 @@
                 <td>{% if r.active %}<span class="badge badge-active">Active</span>{% else %}<span class="badge badge-inactive">Inactive</span>{% endif %}</td>
                 <td>
                     <div class="actions">
-                        <button type="button" class="btn btn-ghost btn-sm" onclick="revealKey({{ r.id }}, this)">🔑 Reveal</button>
+                        <button type="button" class="btn btn-ghost btn-sm" onclick="revealKey({{ r.id }}, this)">Reveal</button>
                         <a href="#edit-modal-{{ r.id }}" class="btn btn-ghost btn-sm">Edit</a>
                         <form method="post" action="/resellers/{{ r.id }}/regenerate" style="display:inline;" onsubmit="return confirm('Regenerate key for {{ r.name | e }}? Old key stops immediately.')">
-                            <button type="submit" class="btn btn-ghost btn-sm">🔄</button>
+                            <button type="submit" class="btn btn-ghost btn-sm" style="margin-top:0.3rem;">Regen</button>
                         </form>
                         <a href="/resellers/{{ r.id }}/delete" class="btn btn-danger btn-sm" onclick="return confirm('Delete {{ r.name | e }}? Permanent.')">×</a>
                     </div>
                     <div id="key-box-{{ r.id }}" style="display:none;margin-top:0.6rem;">
-                        <code id="key-val-{{ r.id }}" style="display:block;padding:0.6rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;word-break:break-all;"></code>
-                        <button type="button" class="btn btn-ghost btn-sm" style="margin-top:0.4rem;" onclick="copyKey({{ r.id }})">Copy</button>
+                        <code id="key-val-{{ r.id }}" class="secret" style="display:block;padding:0.6rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;word-break:break-all;"></code>
+                        <div style="display:flex;gap:0.4rem;flex-wrap:wrap;margin-top:0.4rem;">
+                          <button type="button" class="btn btn-ghost btn-sm copy-btn" data-copy-target="key-val-{{ r.id }}">Copy</button>
+                          <button type="button" class="btn btn-ghost btn-sm secret-toggle" data-secret-toggle="key-val-{{ r.id }}">Show</button>
+                        </div>
                     </div>
                 </td>
             </tr>
@@ -86,7 +89,7 @@
                 </select>
             </div>
             <p class="muted" style="font-size:0.8rem;margin-top:0.5rem;">
-                Key prefix: <code>{{ r.api_key_prefix }}...</code> — use 🔑 Reveal in the table to copy it.
+                Key prefix: <code>{{ r.api_key_prefix }}...</code> — use Reveal in the table to copy it.
             </p>
             <div style="padding:0.75rem;background:var(--bg-input);border-radius:10px;margin-top:0.75rem;">
                 <strong style="font-size:0.85rem;">Balance: <span class="green">${{ "%.2f"|format(r.balance) }}</span></strong>
@@ -115,22 +118,14 @@ function revealKey(id, btn) {
         .then(d => {
             document.getElementById('key-val-' + id).textContent = d.api_key;
             document.getElementById('key-box-' + id).style.display = 'block';
-            if (navigator.clipboard) navigator.clipboard.writeText(d.api_key);
-            btn.textContent = '🔑 Reveal';
+            btn.textContent = 'Reveal';
             btn.disabled = false;
         })
         .catch(() => {
             alert('Failed to reveal key. Are you logged in?');
-            btn.textContent = '🔑 Reveal';
+            btn.textContent = 'Reveal';
             btn.disabled = false;
         });
-}
-function copyKey(id) {
-    const t = document.getElementById('key-val-' + id).textContent;
-    navigator.clipboard.writeText(t);
-    const b = event.target;
-    const old = b.textContent; b.textContent = 'Copied!';
-    setTimeout(() => b.textContent = old, 1500);
 }
 </script>
 {% endblock %}

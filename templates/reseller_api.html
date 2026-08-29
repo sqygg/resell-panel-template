@@ -10,11 +10,14 @@
 
     <div class="card" style="padding:1.5rem;">
       <p class="muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;">Current Password</p>
-      {% if api_key %}
-        <code id="akey" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;filter:blur(6px);user-select:none;">{{ api_key }}</code>
-        <button class="btn btn-ghost btn-sm" onclick="copyKey()">Copy</button>
-        <a href="/reseller/api/regen" class="btn btn-danger btn-sm" onclick="return confirm('Regenerate? Old key stops immediately.')">Regenerate</a>
-        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Your password is blurred for security. Copy grabs the real value. Regenerating invalidates the old password — the new one is shown in clear text once on the next page.</p>
+      {% if api_key_mask %}
+        <code id="akey" class="secret" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;">{{ api_key_mask }}</code>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-ghost btn-sm" id="revealKeyBtn">Reveal &amp; Copy</button>
+          <span id="keyStatus" class="dim" style="font-size:0.8rem;"></span>
+        </div>
+        <a href="/reseller/api/regen" class="btn btn-danger btn-sm" style="margin-top:0.75rem;" onclick="return confirm('Regenerate? Old key stops immediately.')">Regenerate</a>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">For security the full password is never sent to your browser. Click Reveal &amp; Copy to fetch it once over an authenticated request. Regenerating invalidates the old password — the new one is shown in clear text once on the next page.</p>
       {% else %}
         <p class="dim">No key available. Contact the store owner.</p>
       {% endif %}
@@ -37,16 +40,39 @@
       {% else %}
         <p class="dim" style="font-size:0.85rem;">Your account is not linked to SellAuth yet. Enter the customer email you use on the store to connect.</p>
       {% endif %}
-      <form action="/reseller/api/link-sellauth" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;">
-        <input type="email" name="email" value="{{ sellauth_email or '' }}" placeholder="you@store.com" required style="flex:1;min-width:200px;padding:0.6rem 0.8rem;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:0.5rem;color:var(--text);font-size:0.9rem;">
-        <button class="btn btn-primary btn-sm">{% if sellauth_email %}Update link{% else %}Link account{% endif %}</button>
-      </form>
+    <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
+      <div class="page-head">
+        <div><h4>Discord Account</h4><p class="muted">Link Discord to receive a 2FA code and delivery alerts by DM.</p></div>
+        <a href="/reseller/discord" class="btn btn-ghost btn-sm">Manage →</a>
+      </div>
+      <p class="dim" style="font-size:0.85rem;">Verified via Discord OAuth — only you can link your own account.</p>
     </div>
   </div>
 </div>
 <script>
-function copyKey(){ const t=document.getElementById('akey').textContent; navigator.clipboard?.writeText(t); alert('Copied!'); }
 {% if request.query_params.get('synced') == '1' %}window.addEventListener('load', ()=>alert('Balance synced from SellAuth.'));{% endif %}
 {% if request.query_params.get('linked') == '1' %}window.addEventListener('load', ()=>alert('SellAuth account linked. Use Sync to pull your balance.'));{% endif %}
+(function () {
+  var btn = document.getElementById('revealKeyBtn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var status = document.getElementById('keyStatus');
+    status.textContent = 'Fetching…';
+    fetch('/reseller/api/key', {credentials: 'same-origin'})
+      .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+      .then(function (d) {
+        var code = document.getElementById('akey');
+        code.textContent = d.api_key;
+        code.classList.add('revealed');
+        btn.textContent = 'Copy';
+        status.textContent = 'Shown once — copy now';
+        btn.onclick = function () {
+          if (window.__astroCopy) window.__astroCopy(d.api_key).then(function(){ status.textContent = 'Copied'; });
+          else { navigator.clipboard.writeText(d.api_key); status.textContent = 'Copied'; }
+        };
+      })
+      .catch(function () { status.textContent = 'Failed — are you logged in?'; });
+  });
+})();
 </script>
 {% endblock %}

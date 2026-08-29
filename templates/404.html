@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}404 — Lost in space · Astro Panel{% endblock %}
+{% block head %}
+<style>
+  .nf-wrap { max-width: 640px; margin: 0 auto; padding: 5rem 1.5rem 3rem; text-align: center; }
+  .nf-emoji { font-size: 2.6rem; margin-bottom: .25rem; }
+  .nf-code { font-size: 6rem; font-weight: 900; letter-spacing: -.04em; line-height: 1; color: #fff; text-shadow: var(--glow); }
+  .nf-wrap h2 { font-size: 1.45rem; margin: .6rem 0 .4rem; color: #fff; }
+  .nf-wrap p { color: var(--text-dim); margin: 0 auto 1.85rem; max-width: 460px; }
+  .nf-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="nf-wrap">
+  <div class="nf-code">404</div>
+  <h2>Lost in space</h2>
+  <p>The page you're looking for drifted out of orbit. It may have moved, or it never existed.</p>
+  <div class="nf-actions">
+    <a href="/" class="btn btn-primary">Back home</a>
+    <a href="/auth" class="btn btn-ghost">Reseller dashboard</a>
+    <a href="/apply" class="btn btn-ghost">Apply to resell</a>
+  </div>
+</div>
+{% endblock %}

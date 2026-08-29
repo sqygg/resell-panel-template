@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Discord Link · Astro Panel{% endblock %}
+{% block content %}
+<div class="page">
+  <div class="container">
+    <div class="page-head">
+      <div><h1>Discord Account</h1><p class="muted">Link your Discord so the owner can DM you a 2FA code and delivery alerts securely.</p></div>
+      <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
+    </div>
+
+    <div class="card" style="padding:1.5rem;">
+      <div class="page-head">
+        <div><h4>Connection status</h4><p class="muted">Verified via Discord OAuth — only you can link your own account.</p></div>
+        {% if linked %}
+          <span class="badge badge-active">● Linked</span>
+        {% else %}
+          <span class="badge badge-inactive">○ Not linked</span>
+        {% endif %}
+      </div>
+
+      {% if linked %}
+        <p class="muted" style="font-size:0.85rem;">Linked account: <code>{{ discord_username or 'unknown' }}</code></p>
+        <form action="/reseller/discord/unlink" method="post" style="margin-top:0.75rem;">
+          <button class="btn btn-danger btn-sm" onclick="return confirm('Unlink your Discord account?');">Unlink</button>
+        </form>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Re-linking will replace the current account.</p>
+      {% elif discord_cfg_ok %}
+        <p class="dim" style="font-size:0.85rem;">Your account is not linked to Discord yet. Click below to sign in with Discord.</p>
+        <a href="/reseller/discord/start" class="btn btn-primary btn-sm" style="margin-top:0.75rem;">Link with Discord</a>
+      {% else %}
+        <p class="dim" style="font-size:0.85rem;">Discord linking is not configured on this server yet (missing DISCORD_CLIENT_ID / PUBLIC_URL).</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

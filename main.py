@@ -1,5 +1,6 @@
 """Reseller Panel — FastAPI app with full security hardening."""
 import logging
+import os
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
@@ -93,13 +94,28 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.exception_handler(404)
 async def not_found_handler(request: Request, exc):
+    # API clients (no HTML accept) get JSON; browsers get the branded 404 page
+    if "text/html" in request.headers.get("accept", ""):
+        from fastapi.templating import Jinja2Templates
+        from config import settings
+        tpl = Jinja2Templates(directory="templates")
+        tpl.context_processors.append(
+            lambda r: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")}
+        )
+        return tpl.TemplateResponse(
+            "404.html",
+            {"request": request, "brand_name": settings.BRAND_NAME,
+             "brand_tagline": settings.BRAND_TAGLINE},
+            status_code=404,
+        )
     return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 
 @app.exception_handler(401)
 async def unauthorized_handler(request: Request, exc):
-    # Browser page loads get redirected to login; API clients get JSON 401
-    if "text/html" in request.headers.get("accept", ""):
+    # Browser page loads get redirected to login; API clients get JSON 401.
+    # Only redirect first-party HTML pages — API routes must stay JSON (never redirect).
+    if "text/html" in request.headers.get("accept", "") and not request.url.path.startswith("/api/"):
         from fastapi.responses import RedirectResponse
         return RedirectResponse(url="/auth", status_code=303)
     return JSONResponse(status_code=401, content={"detail": exc.detail or "Unauthorized"})

@@ -6,19 +6,27 @@
         <p>Overview of your reseller operation.</p>
     </div>
 
-    <div class="cards">
-        <div class="card">
-            <div class="label">Active Resellers</div>
-            <div class="value">{{ active_resellers }}</div>
+    <div class="cards" style="grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));">
+      <div class="card" style="padding:1.5rem;">
+        <div class="chart-title">Stock by product (top 6)</div>
+        {% set max_stock = stock_series | map(attribute='stock') | list | max or 1 %}
+        <div class="hbarchart">
+          {% for p in stock_series %}
+          <div class="hrow"><span class="hname" title="{{ p.name }}">{{ p.name }}</span><div class="htrack"><div class="hfill" style="width: {{ ((p.stock / max_stock) * 100) | round | int }}%"></div></div><span class="hval">{{ p.stock }}</span></div>
+          {% endfor %}
+          {% if not stock_series %}<span class="dim">No products loaded.</span>{% endif %}
         </div>
-        <div class="card">
-            <div class="label">Total Products</div>
-            <div class="value">{{ total_products }}</div>
+      </div>
+      <div class="card" style="padding:1.5rem;">
+        <div class="chart-title">Resellers</div>
+        {% set rs = reseller_split %}
+        {% set max_rs = [rs.active, rs.inactive] | max or 1 %}
+        <div class="hbarchart">
+          <div class="hrow"><span class="hname">Active</span><div class="htrack"><div class="hfill" style="width: {{ ((rs.active / max_rs) * 100) | round | int }}%;background:linear-gradient(90deg,#22c55e,#16a34a);"></div></div><span class="hval">{{ rs.active }}</span></div>
+          <div class="hrow"><span class="hname">Inactive</span><div class="htrack"><div class="hfill" style="width: {{ ((rs.inactive / max_rs) * 100) | round | int }}%;background:linear-gradient(90deg,#ef4444,#b91c1c);"></div></div><span class="hval">{{ rs.inactive }}</span></div>
         </div>
-        <div class="card">
-            <div class="label">Total Stock</div>
-            <div class="value">{{ total_stock }}</div>
-        </div>
+        <div class="legend"><span><span class="dot g"></span>Active</span><span><span class="dot r"></span>Inactive</span></div>
+      </div>
     </div>
 
     <div class="section-header">

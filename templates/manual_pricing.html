@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% block title %}Manual Pricing · Astro Panel{% endblock %}
+{% block content %}
+<div class="container" style="max-width:960px;">
+  <div class="page-head">
+    <div>
+      <h1>Manual Pricing</h1>
+      <p class="muted">Hand-set a fixed price for any product or variant at any specific discount level. Overrides win over the computed discount price everywhere (store, catalog, API).</p>
+    </div>
+    <a href="/admin/applications" class="btn btn-ghost btn-sm">&larr; Applications</a>
+  </div>
+
+  <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+    <h3 style="margin-top:0;">Set a price</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:0.9rem;align-items:flex-end;">
+      <div class="form-group" style="flex:1;min-width:200px;">
+        <label>Product</label>
+        <select id="mpProduct" class="input">
+          <option value="">Select product…</option>
+          {% for p in products %}<option value="{{ p.id }}">{{ p.name | e }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1;min-width:200px;">
+        <label>Variant</label>
+        <select id="mpVariant" class="input">
+          <option value="">Default (no variant)</option>
+        </select>
+      </div>
+      <div class="form-group" style="width:140px;">
+        <label>Discount %</label>
+        <input id="mpDiscount" class="input" type="number" step="0.5" min="0" max="100" value="30">
+      </div>
+      <div class="form-group" style="width:160px;">
+        <label>Price ($)</label>
+        <input id="mpPrice" class="input" type="number" step="0.01" min="0" placeholder="0.00">
+      </div>
+      <button id="mpSave" class="btn btn-primary">Save</button>
+    </div>
+    <p class="muted" style="font-size:0.82rem;margin-top:0.75rem;">
+      Computed default: <code id="mpComputed">—</code>
+      <span id="mpOverrideTag" class="badge badge-discount" style="display:none;margin-left:0.5rem;">Override active</span>
+      <span id="mpMsg" style="margin-left:0.75rem;"></span>
+    </p>
+  </div>
+
+  <div class="section-header">
+    <h2>Active overrides</h2>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Product</th><th>Variant</th><th>Discount</th><th>Price</th><th></th></tr></thead>
+      <tbody id="ovBody">
+        {% for o in overrides %}
+        <tr data-p="{{ o.product_id }}" data-v="{{ o.variant_id }}" data-d="{{ o.discount_percent }}">
+          <td>{{ o.product_id }}</td>
+          <td>{% if o.variant_id %}{{ o.variant_id }}{% else %}<span class="dim">default</span>{% endif %}</td>
+          <td><span class="badge badge-discount">{{ o.discount_percent }}%</span></td>
+          <td><strong>${{ "%.2f"|format(o.price) }}</strong></td>
+          <td><button class="btn btn-danger btn-sm ov-del" data-p="{{ o.product_id }}" data-v="{{ o.variant_id }}" data-d="{{ o.discount_percent }}">Remove</button></td>
+        </tr>
+        {% endfor %}
+        {% if not overrides %}<tr><td colspan="5" class="empty">No manual prices yet — prices follow the discount formula.</td></tr>{% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const PRODUCTS = {
+  {% for p in products %}"{{ p.id }}": {"name": "{{ p.name | e }}", "price": {{ p.price }}, "variants": [{"id":"","name":"Default","price":{{ p.price }}}{% for v in p.variants %},{"id":"{{ v.variant_id }}","name":"{{ v.name | e }}","price":{{ v.price }}}{% endfor %}]},
+  {% endfor %}
+};
+
+function mpSelectedBase(){
+  const pid = document.getElementById('mpProduct').value;
+  const vid = document.getElementById('mpVariant').value;
+  const prod = PRODUCTS[pid];
+  if(!prod) return null;
+  const v = prod.variants.find(x => x.id === vid) || prod.variants[0];
+  return v ? v.price : null;
+}
+function mpRecompute(){
+  const base = mpSelectedBase();
+  const d = parseFloat(document.getElementById('mpDiscount').value) || 0;
+  const computed = (base != null) ? (base * (1 - d/100)) : null;
+  document.getElementById('mpComputed').textContent = (computed != null) ? '$' + computed.toFixed(2) : '—';
+  // Prefill price if empty, and flag existing override
+  const msg = document.getElementById('mpMsg');
+  const tag = document.getElementById('mpOverrideTag');
+  if(base != null && !document.getElementById('mpPrice').value){
+    document.getElementById('mpPrice').value = computed.toFixed(2);
+  }
+  // Check existing override via the overrides table
+  const pid = document.getElementById('mpProduct').value, vid = document.getElementById('mpVariant').value, dkey = (parseFloat(document.getElementById('mpDiscount').value)||0);
+  let found = null;
+  document.querySelectorAll('#ovBody tr').forEach(tr => {
+    if(tr.dataset.p === pid && tr.dataset.v === vid && tr.dataset.d === String(dkey)) found = tr;
+  });
+  if(found){ tag.style.display=''; } else { tag.style.display='none'; }
+}
+document.getElementById('mpProduct').addEventListener('change', function(){
+  const prod = PRODUCTS[this.value];
+  const vs = document.getElementById('mpVariant');
+  vs.innerHTML = '<option value="">Default (no variant)</option>';
+  if(prod){ prod.variants.forEach(v => { if(v.id) { const o=document.createElement('option'); o.value=v.id; o.textContent=v.name; vs.appendChild(o); } }); }
+  mpRecompute();
+});
+document.getElementById('mpVariant').addEventListener('change', mpRecompute);
+document.getElementById('mpDiscount').addEventListener('input', mpRecompute);
+
+document.getElementById('mpSave').addEventListener('click', async function(){
+  const pid = document.getElementById('mpProduct').value;
+  const vid = document.getElementById('mpVariant').value;
+  const d = parseFloat(document.getElementById('mpDiscount').value) || 0;
+  const price = parseFloat(document.getElementById('mpPrice').value);
+  const msg = document.getElementById('mpMsg');
+  if(!pid){ msg.textContent='Select a product.'; msg.style.color='#ef4444'; return; }
+  if(isNaN(price) || price < 0){ msg.textContent='Enter a valid price.'; msg.style.color='#ef4444'; return; }
+  const fd = new FormData();
+  fd.append('product_id', pid); fd.append('variant_id', vid); fd.append('discount_percent', d); fd.append('price', price);
+  const res = await fetch('/admin/pricing/save', {method:'POST', body: fd, credentials:'same-origin'});
+  const data = await res.json();
+  if(data.ok){
+    msg.textContent = 'Saved $' + data.price.toFixed(2) + ' @ ' + d + '%'; msg.style.color='#22c55e';
+    setTimeout(()=>location.reload(), 500);
+  } else {
+    msg.textContent = data.error || 'Failed'; msg.style.color='#ef4444';
+  }
+});
+
+document.querySelectorAll('.ov-del').forEach(b => {
+  b.addEventListener('click', async function(){
+    const fd = new FormData();
+    fd.append('product_id', this.dataset.p); fd.append('variant_id', this.dataset.v); fd.append('discount_percent', this.dataset.d);
+    const res = await fetch('/admin/pricing/delete', {method:'POST', body: fd, credentials:'same-origin'});
+    const data = await res.json();
+    if(data.ok) location.reload();
+  });
+});
+mpRecompute();
+</script>
+{% endblock %}

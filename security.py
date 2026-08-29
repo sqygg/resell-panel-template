@@ -96,7 +96,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         elif path.startswith("/api/admin/"):
             limiter_key = f"admin:{ip}"
             limiter = admin_api_limiter
-        elif path == "/login" and request.method == "POST":
+        elif path in ("/login", "/auth", "/apply") and request.method == "POST":
+            # Auth/registration endpoints: strict per-IP limit to stop brute force
             limiter_key = f"login:{ip}"
             limiter = login_limiter
         else:

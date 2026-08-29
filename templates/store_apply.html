@@ -1,4 +1,5 @@
 {% extends "store_base.html" %}
+{% block title %}Apply to Resell · Astro Panel{% endblock %}
 {% block content %}
 <div class="container" style="max-width:620px;">
     <div style="text-align:center;margin-bottom:2rem;">
@@ -9,7 +10,8 @@
 
     {% if request.query_params.get('done') %}
     <div style="background:var(--green-soft);color:var(--green);padding:0.9rem 1.1rem;border-radius:10px;margin-bottom:1.5rem;font-size:0.9rem;font-weight:600;">
-        ✓ Application submitted! We'll review it and contact you on Discord.
+        <span class="success-circle"><span class="check"></span></span>
+        <p>Application submitted! We'll review it and contact you on Discord.</p>
     </div>
     {% endif %}
 

@@ -56,9 +56,25 @@
     .copy-btn .lbl { transition: opacity .15s; }
     .copy-btn.copied .lbl { opacity: 0; position: absolute; }
   </style>
+  /* Scroll progress bar */
+  .scroll-progress {
+    position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 300;
+    background: linear-gradient(90deg, #6366f1, #22c55e);
+    transition: width .08s linear; pointer-events: none;
+  }
+  /* Cookie consent banner */
+  .cookie-banner {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 300;
+    background: #0b0e14; border-top: 1px solid var(--border-strong);
+    padding: 1rem 1.25rem; display: flex; align-items: center;
+    justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  }
+  .cookie-banner p { margin: 0; color: var(--text-dim); font-size: .9rem; max-width: 720px; }
+  .cookie-banner .ck-actions { display: flex; gap: .5rem; }
   {% block head %}{% endblock %}
 </head>
 <body>
+  <div class="scroll-progress" id="scrollProgress"></div>
   {% set path = request.url.path %}
   {% if path.startswith('/resellers') or path.startswith('/admin') or path.startswith('/login') or path.startswith('/stock') %}
     {% set realm = 'admin' %}
@@ -110,22 +126,32 @@
       <a href="/stock" class="link">Stock</a>
       <a href="/admin/orders" class="link">Orders</a>
       <a href="/admin/applications" class="link">Applications</a>
+      <a href="/admin/pricing" class="link">Manual Pricing</a>
       <div class="divider"></div>
       <a href="/logout" class="link">Sign out</a>
     {% else %}
       <div class="menu-label">Menu</div>
       <a href="/" class="link">Home</a>
+      <a href="/faq" class="link">FAQ</a>
       <a href="/api-docs" class="link">Api Docs</a>
       <a href="/apply" class="link">Apply to Resell</a>
       <a href="/auth" class="link">Reseller Dashboard</a>
     {% endif %}
   </aside>
 
+  <div class="cookie-banner" id="cookieBanner">
+    <p>We use cookies to keep you signed in and improve your experience. By continuing you agree to our use of cookies.</p>
+    <div class="ck-actions">
+      <button class="btn btn-ghost btn-sm" id="ckDecline" type="button">Decline</button>
+      <button class="btn btn-primary btn-sm" id="ckAccept" type="button">Accept</button>
+    </div>
+  </div>
+
   {% block content %}{% endblock %}
 
   <footer>
     <p>ASTRO — Your reliable partner in gaming solutions.</p>
-    <p>© 2026 Astro. All rights reserved.{% if deploy_sha %} <span class="dim">· build {{ deploy_sha[:7] }}</span>{% endif %}</p>
+    <p>© 2026 Astro. All rights reserved.{% if deploy_sha %} <span class="dim">· build {{ deploy_sha[:7] }}</span>{% endif %} · <a href="/privacy" style="color:var(--text-dim);text-decoration:underline;">Privacy</a> · <a href="/faq" style="color:var(--text-dim);text-decoration:underline;">FAQ</a></p>
   </footer>
 
   <script>
@@ -150,6 +176,100 @@
         a.addEventListener('click', function () { setOpen(false); });
       });
     })();
+
+    // Scroll progress bar
+    (function () {
+      var bar = document.getElementById('scrollProgress');
+      if (!bar) return;
+      function onScroll() {
+        var el = document.documentElement;
+        var max = el.scrollHeight - el.clientHeight;
+        var p = max > 0 ? ((el.scrollTop || document.body.scrollTop) / max) * 100 : 0;
+        bar.style.width = p + '%';
+      }
+      window.addEventListener('scroll', onScroll, { passive: true });
+      onScroll();
+    })();
+
+    // Cookie consent banner
+    (function () {
+      var b = document.getElementById('cookieBanner');
+      if (!b) return;
+      try {
+        if (localStorage.getItem('cookie_consent')) { b.remove(); return; }
+      } catch (e) { return; }
+      function close(v) {
+        try { localStorage.setItem('cookie_consent', v); } catch (e) {}
+        b.remove();
+      }
+      var acc = document.getElementById('ckAccept');
+      var dec = document.getElementById('ckDecline');
+      if (acc) acc.onclick = function () { close('accepted'); };
+      if (dec) dec.onclick = function () { close('declined'); };
+    })();
+
+    // Global clipboard copy (secure API + execCommand fallback for http/insecure)
+    window.__astroCopy = function (text) {
+      if (navigator.clipboard && window.isSecureContext) {
+        return navigator.clipboard.writeText(text).catch(function () { return legacyCopy(text); });
+      }
+      return Promise.resolve(legacyCopy(text));
+    };
+    function legacyCopy(text) {
+      try {
+        var ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.top = '-9999px';
+        ta.setAttribute('readonly', '');
+        document.body.appendChild(ta);
+        ta.select();
+        ta.setSelectionRange(0, ta.value.length);
+        var ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (e) { return false; }
+    }
+    function flashCopied(btn) {
+      btn.classList.add('copied');
+      var prev = btn.dataset.label || btn.textContent;
+      btn.dataset.label = prev;
+      btn.textContent = 'Copied';
+      setTimeout(function () {
+        btn.classList.remove('copied');
+        btn.textContent = btn.dataset.label;
+      }, 1400);
+    }
+    // Delegated handler for any <button class="copy-btn" data-copy|data-copy-target>
+    document.addEventListener('click', function (e) {
+      var btn = e.target.closest && e.target.closest('.copy-btn');
+      if (!btn) return;
+      var text;
+      if (btn.dataset.copyTarget) {
+        var el = document.getElementById(btn.dataset.copyTarget) || document.querySelector(btn.dataset.copyTarget);
+        if (!el) return;
+        text = (el.value !== undefined ? el.value : el.textContent).trim();
+      } else {
+        text = (btn.dataset.copy || '').trim();
+      }
+      if (!text) return;
+      e.preventDefault();
+      window.__astroCopy(text).then(function (ok) {
+        if (!ok) { alert('Copy failed — select and copy manually.'); return; }
+        flashCopied(btn);
+      });
+    });
+
+    // Secret visibility toggle (blur / reveal)
+    document.addEventListener('click', function (e) {
+      var t = e.target.closest && e.target.closest('[data-secret-toggle]');
+      if (!t) return;
+      var id = t.getAttribute('data-secret-toggle');
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('revealed');
+      t.textContent = el.classList.contains('revealed') ? 'Hide' : 'Show';
+    });
   </script>
 </body>
 </html>

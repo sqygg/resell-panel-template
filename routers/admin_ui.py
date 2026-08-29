@@ -1,6 +1,8 @@
 """Admin UI — web dashboard with brute-force protection and secure cookies."""
 import os
 import re
+import time
+import logging
 import uuid
 from fastapi import APIRouter, Request, Form, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -15,13 +17,23 @@ templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RA
 
 # In-memory session store (valid sessions)
 _active_sessions: dict[str, str] = {}  # session_id -> admin_token
+_session_expiry: dict[str, float] = {}  # session_id -> expiry epoch
 SESSION_COOKIE = "session_id"
 SESSION_MAX_AGE = 86400  # 24 hours
+
+
+def _sweep_admin_sessions():
+    now = time.time()
+    expired = [sid for sid, exp in _session_expiry.items() if not exp or now > exp]
+    for sid in expired:
+        _active_sessions.pop(sid, None)
+        _session_expiry.pop(sid, None)
 
 
 def get_admin_token(request: Request) -> str:
     """Extract session token from cookie."""
     from config import settings
+    _sweep_admin_sessions()
     sid = request.cookies.get(SESSION_COOKIE, "")
     return _active_sessions.get(sid, "")
 
@@ -44,6 +56,7 @@ def set_session_cookie(response, admin_token: str):
     """Set a secure session cookie."""
     sid = uuid.uuid4().hex
     _active_sessions[sid] = admin_token
+    _session_expiry[sid] = time.time() + SESSION_MAX_AGE
     response.set_cookie(
         key=SESSION_COOKIE,
         value=sid,
@@ -72,8 +85,8 @@ def login_action(request: Request, password: str = Form(...)):
     from config import settings
     ip = get_client_ip(request)
 
-    # Brute force check
-    if db.check_brute_force(ip):
+    # Brute force check — 5 failed attempts per hour per IP (strict on admin password)
+    if db.check_brute_force(ip, max_attempts=5, window_minutes=60):
         resp = RedirectResponse(url="/login?error=rate_limited", status_code=303)
         return resp
 
@@ -108,13 +121,24 @@ def dashboard(request: Request):
         return RedirectResponse(url="/login")
     products = sellauth.get_products_for_webhook()
     resellers = db.list_resellers()
+    # Top products by stock for the chart
+    stock_series = sorted(
+        [{"name": p["name"], "stock": p.get("stock", 0)} for p in products],
+        key=lambda x: x["stock"], reverse=True,
+    )[:6]
+    reseller_split = {
+        "active": sum(1 for r in resellers if r["active"]),
+        "inactive": sum(1 for r in resellers if not r["active"]),
+    }
     return templates.TemplateResponse("dashboard.html", {
         "request": request,
         "products": products,
         "resellers": resellers,
-        "active_resellers": sum(1 for r in resellers if r["active"]),
+        "active_resellers": reseller_split["active"],
         "total_products": len(products),
         "total_stock": sum(p.get("stock", 0) for p in products),
+        "stock_series": stock_series,
+        "reseller_split": reseller_split,
     })
 
 
@@ -322,12 +346,12 @@ def admin_approve_application(
             ip=ip,
             referred_by_code=app.get("referral_code", ""),
         )
-    except Exception as e:  # noqa: BLE001 - surface the real error to admin
-        import traceback
-        tb = traceback.format_exc()
+    except Exception as e:  # noqa: BLE001 - surface a safe message to admin
+        logger = logging.getLogger("reseller-panel")
+        logger.error(f"Approval failed for app {app_id}: {e}")
         return HTMLResponse(
-            f"<h2>Approval failed</h2><pre>{e}</pre><pre>{tb}</pre>"
-            f"<p><a href='/admin/applications'>Back</a></p>",
+            "<h2>Approval failed</h2><p>The application was approved but reseller creation errored. "
+            "Check the logs or retry. <a href='/admin/applications'>Back</a></p>",
             status_code=200,
         )
     return RedirectResponse(url="/admin/applications", status_code=303)
@@ -341,14 +365,55 @@ def admin_reject_application(request: Request, app_id: int):
     return RedirectResponse(url="/admin/applications", status_code=303)
 
 
-# ---------- API key retrieval (post-creation) ----------
+# ---------- Manual Pricing ----------
+# Owner can hand-set a fixed price for any product/variant at any discount level.
+# Override key: (product_id, variant_id, discount_percent). Applied in api_delivery,
+# catalog and buy pricing via db.effective_price().
 
-@router.get("/api/admin/key/{reseller_id}")
-def get_key_reveal(reseller_id: int, request: Request):
-    """Reveal the reseller's API key (password) on demand. Requires admin session."""
+@router.get("/admin/pricing", response_class=HTMLResponse)
+def admin_pricing(request: Request):
     if not check_ui_auth(request):
-        raise HTTPException(status_code=401, detail="Unauthorized")
-    key = db.reveal_api_key(reseller_id)
-    if key is None:
-        raise HTTPException(status_code=404, detail="Reseller not found")
-    return JSONResponse({"api_key": key})
+        return RedirectResponse(url="/login")
+    products = sellauth.get_products_for_webhook()
+    overrides = db.list_manual_prices()
+    # Build a lookup keyed by (product_id, variant_id, discount) for the table display
+    ov_map = {(o["product_id"], o["variant_id"], o["discount_percent"]): o for o in overrides}
+    return templates.TemplateResponse("manual_pricing.html", {
+        "request": request,
+        "products": products,
+        "overrides": overrides,
+        "ov_map": ov_map,
+    })
+
+
+@router.post("/admin/pricing/save")
+def admin_pricing_save(request: Request,
+                        product_id: str = Form(...),
+                        variant_id: str = Form(""),
+                        discount_percent: float = Form(...),
+                        price: float = Form(...)):
+    if not check_ui_auth(request):
+        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+    if not product_id:
+        return JSONResponse({"ok": False, "error": "Product required"}, status_code=400)
+    if price < 0:
+        return JSONResponse({"ok": False, "error": "Price must be >= 0"}, status_code=400)
+    db.set_manual_price(product_id, variant_id or "", discount_percent, price)
+    return JSONResponse({"ok": True, "price": round(price, 2)})
+
+
+@router.post("/admin/pricing/delete")
+def admin_pricing_delete(request: Request,
+                          product_id: str = Form(...),
+                          variant_id: str = Form(""),
+                          discount_percent: float = Form(...)):
+    if not check_ui_auth(request):
+        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+    db.delete_manual_price(product_id, variant_id or "", discount_percent)
+    return JSONResponse({"ok": True})
+
+
+# ---------- API key retrieval (post-creation) ----------
+# NOTE: removed GET /api/admin/key/{reseller_id} — it returned a reseller's raw
+# decrypted API key on a Bearer password, an unnecessary key-exposure surface.
+# The UI reveal (resellers.html) is sufficient and gated by admin session cookie.

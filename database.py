@@ -95,6 +95,7 @@ def init_db():
             username TEXT NOT NULL DEFAULT '',
             email TEXT NOT NULL DEFAULT '',
             api_key_enc TEXT NOT NULL,
+            api_key_hash TEXT,
             api_key_prefix TEXT NOT NULL,
             discount_percent REAL NOT NULL DEFAULT 0,
             webhook_url TEXT DEFAULT '',
@@ -129,6 +130,15 @@ def init_db():
             status TEXT NOT NULL DEFAULT 'pending',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             reviewed_at TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS manual_pricing (
+            product_id TEXT NOT NULL,
+            variant_id TEXT NOT NULL DEFAULT '',
+            discount_percent REAL NOT NULL,
+            price REAL NOT NULL,
+            updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+            PRIMARY KEY (product_id, variant_id, discount_percent)
         );
 
         CREATE TABLE IF NOT EXISTS webhook_logs (
@@ -212,6 +222,7 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_balance_tx_reseller ON balance_transactions(reseller_id, created_at);
         CREATE INDEX IF NOT EXISTS idx_referrals_referrer ON referrals(referrer_id);
         CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status, created_at);
+        CREATE INDEX IF NOT EXISTS idx_resellers_key_hash ON resellers(api_key_hash);
     """)
     conn.commit()
     conn.close()
@@ -231,9 +242,20 @@ def _migrate():
         # Add encrypted column, copy nothing (old hashed keys are unrecoverable).
         conn.execute("ALTER TABLE resellers ADD COLUMN api_key_enc TEXT")
         conn.execute("UPDATE resellers SET api_key_enc = '' WHERE api_key_enc IS NULL")
-    if "api_key_hash" in existing:
-        # Drop the obsolete hashed column (replaced by encrypted storage).
-        conn.execute("ALTER TABLE resellers DROP COLUMN api_key_hash")
+    if "api_key_hash" not in existing:
+        # Fast lookup column: SHA-256 of the raw API key. Lets /api/deliver and
+        # login authenticate in O(1) without decrypting every reseller's key.
+        conn.execute("ALTER TABLE resellers ADD COLUMN api_key_hash TEXT")
+        # Backfill from the encrypted (decryptable) keys we already hold.
+        rows = conn.execute("SELECT id, api_key_enc FROM resellers WHERE api_key_enc IS NOT NULL AND api_key_enc != ''").fetchall()
+        for row in rows:
+            try:
+                raw = _decrypt_key(row["api_key_enc"])
+            except Exception:
+                raw = ""
+            if raw:
+                h = hashlib.sha256(raw.encode()).hexdigest()
+                conn.execute("UPDATE resellers SET api_key_hash = ? WHERE id = ?", (h, row["id"]))
     if "sellauth_email" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN sellauth_email TEXT NOT NULL DEFAULT ''")
     if "sellauth_balance_cache" not in existing:
@@ -244,6 +266,13 @@ def _migrate():
         conn.execute("ALTER TABLE resellers ADD COLUMN referral_code TEXT")
     if "referred_by" not in existing:
         conn.execute("ALTER TABLE resellers ADD COLUMN referred_by INTEGER")
+    if "discord_id" not in existing:
+        # Linked Discord account id (from OAuth) for 2FA / delivery DMs
+        conn.execute("ALTER TABLE resellers ADD COLUMN discord_id TEXT NOT NULL DEFAULT ''")
+    if "discord_username" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN discord_username TEXT NOT NULL DEFAULT ''")
+    if "discord_linked_at" not in existing:
+        conn.execute("ALTER TABLE resellers ADD COLUMN discord_linked_at TEXT NOT NULL DEFAULT ''")
     if "channel" not in [c[1] for c in conn.execute("PRAGMA table_info(orders)").fetchall()]:
         conn.execute("ALTER TABLE orders ADD COLUMN channel TEXT NOT NULL DEFAULT 'manual'")
     conn.commit()
@@ -326,7 +355,8 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
 
     raw_key = raw_key or _generate_raw_key()
     key_enc = _encrypt_key(raw_key)
-    key_prefix = raw_key[:16]  # for display only
+    key_prefix = raw_key[:16]
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()  # for display only
 
     # Resolve referrer (if any) and generate a referral code
     referrer_id = None
@@ -339,10 +369,10 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
     now = datetime.now(timezone.utc).isoformat()
     conn = get_db()
     conn.execute(
-        """INSERT INTO resellers (name, username, email, api_key_enc, api_key_prefix, discount_percent, webhook_url,
+        """INSERT INTO resellers (name, username, email, api_key_enc, api_key_hash, api_key_prefix, discount_percent, webhook_url,
            referral_code, referred_by, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, username, email, key_enc, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, username, email, key_enc, key_hash, key_prefix, discount, webhook, referral_code, referrer_id, now, now),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM resellers WHERE username = ?", (username,)).fetchone()
@@ -362,53 +392,44 @@ def create_reseller(name: str, discount_percent: float, webhook_url: str = "", i
 
 
 def get_reseller_by_key(api_key: str) -> dict | None:
-    """Lookup reseller by raw API key (password). Decrypt stored token, compare."""
+    """Lookup reseller by raw API key (password). O(1) via SHA-256 hash — no decrypt loop."""
     if not api_key or not api_key.startswith("rs_"):
         return None
+    key_hash = hashlib.sha256(api_key.encode()).hexdigest()
     conn = get_db()
-    rows = conn.execute(
-        "SELECT * FROM resellers WHERE active = 1"
-    ).fetchall()
+    row = conn.execute(
+        "SELECT * FROM resellers WHERE api_key_hash = ? AND active = 1", (key_hash,)
+    ).fetchone()
     conn.close()
-    for row in rows:
-        stored = row["api_key_enc"]
-        if stored and _decrypt_key(stored) == api_key:
-            return dict(row)
-    return None
+    return dict(row) if row else None
 
 
 def get_reseller_by_username_password(username: str, password: str) -> dict | None:
-    """Login: username + password (password == API key). Returns reseller or None."""
+    """Login: username + password (password == API key). Hashed compare, O(1)."""
     if not username or not password:
         return None
+    key_hash = hashlib.sha256(password.encode()).hexdigest()
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM resellers WHERE username = ? AND active = 1", (username.strip(),)
+        "SELECT * FROM resellers WHERE username = ? AND api_key_hash = ? AND active = 1",
+        (username.strip(), key_hash),
     ).fetchone()
     conn.close()
-    if not row:
-        return None
-    stored = row["api_key_enc"]
-    if stored and _decrypt_key(stored) == password:
-        return dict(row)
-    return None
+    return dict(row) if row else None
 
 
 def get_reseller_by_email_password(email: str, password: str) -> dict | None:
-    """Login: email + password (password == API key). Returns reseller or None."""
+    """Login: email + password (password == API key). Hashed compare, O(1)."""
     if not email or not password:
         return None
+    key_hash = hashlib.sha256(password.encode()).hexdigest()
     conn = get_db()
     row = conn.execute(
-        "SELECT * FROM resellers WHERE email = ? AND active = 1", (email.strip().lower(),)
+        "SELECT * FROM resellers WHERE email = ? AND api_key_hash = ? AND active = 1",
+        (email.strip().lower(), key_hash),
     ).fetchone()
     conn.close()
-    if not row:
-        return None
-    stored = row["api_key_enc"]
-    if stored and _decrypt_key(stored) == password:
-        return dict(row)
-    return None
+    return dict(row) if row else None
 
 
 def get_reseller_by_id(reseller_id: int) -> dict | None:
@@ -473,6 +494,45 @@ def update_reseller(reseller_id: int, ip: str = "", **kwargs) -> dict | None:
     return result
 
 
+def link_reseller_discord(reseller_id: int, discord_id: str, discord_username: str, ip: str = "") -> dict | None:
+    """Store a verified Discord account link (from OAuth) on the reseller."""
+    discord_id = (discord_id or "").strip()
+    discord_username = (discord_username or "").strip()[:100]
+    if not discord_id:
+        raise ValueError("discord_id is required")
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET discord_id = ?, discord_username = ?, "
+        "discord_linked_at = ? WHERE id = ?",
+        (discord_id, discord_username, datetime.now(timezone.utc).isoformat(), reseller_id),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
+    conn.close()
+    result = dict(row) if row else None
+    if result:
+        result.pop("api_key_enc", None)
+    _audit("reseller_discord_linked", reseller_id, f"discord={discord_username} ({discord_id})", ip)
+    return result
+
+
+def unlink_reseller_discord(reseller_id: int, ip: str = "") -> dict | None:
+    """Remove the reseller's Discord link (e.g. before re-linking)."""
+    conn = get_db()
+    conn.execute(
+        "UPDATE resellers SET discord_id = '', discord_username = '', discord_linked_at = '' WHERE id = ?",
+        (reseller_id,),
+    )
+    conn.commit()
+    row = conn.execute("SELECT * FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
+    conn.close()
+    result = dict(row) if row else None
+    if result:
+        result.pop("api_key_enc", None)
+    _audit("reseller_discord_unlinked", reseller_id, "", ip)
+    return result
+
+
 def delete_reseller(reseller_id: int, ip: str = "") -> bool:
     conn = get_db()
     # Delete child records first
@@ -493,12 +553,13 @@ def regenerate_api_key(reseller_id: int, ip: str = "") -> dict | None:
     raw_key = _generate_raw_key()
     key_enc = _encrypt_key(raw_key)
     key_prefix = raw_key[:16]
+    key_hash = hashlib.sha256(raw_key.encode()).hexdigest()
     now = datetime.now(timezone.utc).isoformat()
 
     conn = get_db()
     conn.execute(
-        "UPDATE resellers SET api_key_enc = ?, api_key_prefix = ?, updated_at = ? WHERE id = ?",
-        (key_enc, key_prefix, now, reseller_id),
+        "UPDATE resellers SET api_key_enc = ?, api_key_hash = ?, api_key_prefix = ?, updated_at = ? WHERE id = ?",
+        (key_enc, key_hash, key_prefix, now, reseller_id),
     )
     conn.commit()
     row = conn.execute("SELECT * FROM resellers WHERE id = ?", (reseller_id,)).fetchone()
@@ -684,6 +745,65 @@ def resolve_alias(alias: str) -> dict | None:
     if not row:
         return None
     return {"reseller_id": row["reseller_id"], "product_id": row["product_id"], "variant_id": row["variant_id"]}
+
+
+# ---------- Manual pricing overrides ----------
+# Lets the owner hand-set a price for any product/variant at any specific discount level.
+# Key: (product_id, variant_id, discount_percent) -> fixed price (overrides computed discount price).
+
+def set_manual_price(product_id: str, variant_id: str, discount_percent: float, price: float) -> None:
+    """Upsert a manual price override for a product/variant at a given discount level."""
+    price = round(float(price), 2)
+    discount_percent = round(float(discount_percent), 2)
+    conn = get_db()
+    conn.execute(
+        """INSERT INTO manual_pricing (product_id, variant_id, discount_percent, price, updated_at)
+           VALUES (?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(product_id, variant_id, discount_percent)
+           DO UPDATE SET price = excluded.price, updated_at = excluded.updated_at""",
+        (str(product_id), str(variant_id or ""), discount_percent, price),
+    )
+    conn.commit()
+    conn.close()
+
+
+def get_manual_price(product_id: str, variant_id: str, discount_percent: float) -> float | None:
+    """Return the manual override price if one exists, else None."""
+    conn = get_db()
+    row = conn.execute(
+        "SELECT price FROM manual_pricing WHERE product_id = ? AND variant_id = ? AND discount_percent = ?",
+        (str(product_id), str(variant_id or ""), round(float(discount_percent), 2)),
+    ).fetchone()
+    conn.close()
+    return round(row["price"], 2) if row else None
+
+
+def list_manual_prices() -> list[dict]:
+    """All manual price overrides, newest first."""
+    conn = get_db()
+    rows = conn.execute(
+        "SELECT product_id, variant_id, discount_percent, price, updated_at FROM manual_pricing ORDER BY updated_at DESC"
+    ).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def delete_manual_price(product_id: str, variant_id: str, discount_percent: float) -> None:
+    conn = get_db()
+    conn.execute(
+        "DELETE FROM manual_pricing WHERE product_id = ? AND variant_id = ? AND discount_percent = ?",
+        (str(product_id), str(variant_id or ""), round(float(discount_percent), 2)),
+    )
+    conn.commit()
+    conn.close()
+
+
+def effective_price(product_id: str, variant_id: str, discount_percent: float, base_price: float) -> float:
+    """Return the override price if set for (product, variant, discount), else base_price*(1-discount/100)."""
+    override = get_manual_price(product_id, variant_id, discount_percent)
+    if override is not None:
+        return override
+    return round(float(base_price) * (1 - float(discount_percent) / 100), 2)
 
 
 

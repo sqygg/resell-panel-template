@@ -96,7 +96,7 @@ def _do_deliver(
             break
 
     # Price by VARIANT (not product-level) with reseller discount applied
-    unit = round(_variant_price(product, variant_id) * (1 - reseller["discount_percent"] / 100), 2)
+    unit = db.effective_price(product_id, variant_id, reseller["discount_percent"], _variant_price(product, variant_id))
     total = round(unit * quantity, 2)
 
     # Balance check BEFORE dispensing (never charge for nothing)

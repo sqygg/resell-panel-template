@@ -84,6 +84,45 @@ a:hover { color: #fff; text-shadow: 0 0 10px rgba(255,255,255,.5); }
 .btn-sm { padding: 0.4rem 0.8rem; font-size: 0.82rem; }
 .btn-danger { background: transparent; color: #ff6b6b; border-color: rgba(255,107,107,.3); }
 .btn-danger:hover { background: rgba(255,107,107,.1); }
+/* Shared copy-button feedback */
+.copy-btn { transition: box-shadow .25s, transform .15s, background-color .2s, border-color .2s, color .2s; cursor: pointer; }
+.copy-btn:hover { background: rgba(124,255,176,.08); border-color: rgba(124,255,176,.35); color: var(--green); }
+.copy-btn.copied { color: var(--green); border-color: rgba(124,255,176,.4); background: rgba(124,255,176,.06); }
+.btn:active { transform: translateY(0) scale(.98); }
+/* Table row hover */
+tbody tr { transition: background-color .15s; }
+tbody tr:hover { background: rgba(255,255,255,.03); }
+/* Secret visibility toggle (blur/reveal) */
+.secret { filter: blur(6px); user-select: none; transition: filter .15s; }
+.secret.revealed { filter: none; user-select: auto; }
+.secret-toggle { cursor: pointer; }
+/* CSS-drawn checkmark (no emoji) */
+.check { display: inline-block; width: 18px; height: 18px; position: relative; }
+.check::after { content: ''; position: absolute; left: 6px; top: 2px; width: 5px; height: 10px;
+  border: solid var(--green); border-width: 0 2px 2px 0; transform: rotate(45deg); }
+.success-circle { width: 56px; height: 56px; border-radius: 50%; background: rgba(124,255,176,.12);
+  color: #7CFFB0; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem; }
+/* Charts (dependency-free, theme-matched) */
+.chart-title { font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-faint); margin-bottom: 0.9rem; }
+.barchart { display: flex; align-items: flex-end; gap: 0.5rem; height: 140px; padding-top: 0.5rem; }
+.barchart .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; gap: 0.35rem; min-width: 0; }
+.barchart .bar { width: 100%; max-width: 34px; border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #6366f1, #4f46e5); box-shadow: 0 0 18px rgba(99,102,241,.35);
+  transition: height .3s ease; }
+.barchart .bar.zero { background: rgba(255,255,255,.06); box-shadow: none; }
+.barchart .bar-label { font-size: 0.68rem; color: var(--text-faint); white-space: nowrap; }
+.barchart .bar-val { font-size: 0.72rem; color: var(--text-dim); font-weight: 600; }
+.hbarchart { display: flex; flex-direction: column; gap: 0.65rem; }
+.hbarchart .hrow { display: grid; grid-template-columns: 120px 1fr auto; align-items: center; gap: 0.6rem; }
+.hbarchart .hname { font-size: 0.8rem; color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hbarchart .htrack { background: rgba(255,255,255,.05); border-radius: 999px; height: 10px; overflow: hidden; }
+.hbarchart .hfill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #6366f1, #22c55e); }
+.hbarchart .hval { font-size: 0.8rem; color: var(--text-dim); font-weight: 600; }
+.legend { display: flex; gap: 1.1rem; margin-top: 0.9rem; font-size: 0.8rem; color: var(--text-dim); flex-wrap: wrap; }
+.legend .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 0.35rem; vertical-align: middle; }
+.legend .dot.g { background: #22c55e; }
+.legend .dot.y { background: #eab308; }
+.legend .dot.r { background: #ef4444; }
 
 /* Auth card (exodus-style) */
 .auth-wrap {

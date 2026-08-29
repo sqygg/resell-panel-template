@@ -36,7 +36,7 @@
     holder.innerHTML =
       '<div class="reseller-portal-bar">' +
         '<span class="reseller-portal-title">' + LABEL + '</span>' +
-        '<a class="reseller-portal-open" href="' + PANEL_URL + '/auth" ' +
+        '<a class="reseller-portal-open" href="' + PANEL_URL + '/" ' +
         'target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>' +
         '</div>' +
         '<iframe class="reseller-portal-frame" src="' + PANEL_URL + '/" ' +

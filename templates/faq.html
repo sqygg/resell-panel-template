@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}FAQ · Astro Panel{% endblock %}
+{% block head %}
+<style>
+  .faq-wrap { max-width: 820px; margin: 0 auto; padding: 4rem 1.5rem 3rem; }
+  .faq-wrap .eyebrow { display: inline-block; padding: .3rem .8rem; border-radius: 999px;
+    background: rgba(255,255,255,.06); border: 1px solid var(--border-strong);
+    color: var(--text-dim); font-size: .78rem; font-weight: 700; letter-spacing: .08em; margin-bottom: 1.1rem; }
+  .faq-wrap h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -.03em; color: #fff; text-shadow: var(--glow); margin: 0 0 2rem; }
+  .faq-item { border: 1px solid var(--border-strong); border-radius: 14px; background: var(--card); margin-bottom: 1rem; overflow: hidden; }
+  .faq-item > summary { list-style: none; cursor: pointer; padding: 1.1rem 1.25rem; font-size: 1.05rem; font-weight: 600; color: #fff;
+    display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .faq-item > summary::-webkit-details-marker { display: none; }
+  .faq-item > summary .chev { color: var(--text-dim); transition: transform .2s; flex: none; }
+  .faq-item[open] > summary .chev { transform: rotate(45deg); }
+  .faq-item .ans { padding: 0 1.25rem 1.2rem; color: var(--text-dim); font-size: .96rem; line-height: 1.55; }
+  .faq-item .ans a { color: var(--accent, #7cc6ff); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="faq-wrap">
+  <span class="eyebrow">HELP CENTER</span>
+  <h1>Frequently Asked Questions</h1>
+
+  <details class="faq-item" open>
+    <summary>What is Astro Panel?<span class="chev">+</span></summary>
+    <div class="ans">Astro Panel is an all-in-one reselling platform for gaming solutions (such as R6 linker keys). It gives resellers a branded dashboard to manage balance, buy keys at custom discounts, and pull real serials straight from our SellAuth stock via a signed API — with automated webhook delivery and 24/7 support.</div>
+  </details>
+
+  <details class="faq-item">
+    <summary>How do I become a reseller?<span class="chev">+</span></summary>
+    <div class="ans">Apply at <a href="/apply">/apply</a>. We review every application (Discord + a website/social are required) and approve manually. Once accepted you get a dashboard login and an API key, plus a per-reseller discount % applied automatically on every order.</div>
+  </details>
+
+  <details class="faq-item">
+    <summary>How are keys delivered?<span class="chev">+</span></summary>
+    <div class="ans">Instantly. When a reseller buys or pulls a key, Astro Panel delivers a real serial from live SellAuth stock and fires a webhook to your endpoint. No manual copy-paste, no waiting — delivery is automated and logged.</div>
+  </details>
+
+  <details class="faq-item">
+    <summary>What discounts do resellers get?<span class="chev">+</span></summary>
+    <div class="ans">Each reseller has a custom discount percentage set by the owner. It's applied automatically at checkout, so your price is always correct without coupon codes. Higher-volume resellers can request a better rate through their dashboard.</div>
+  </details>
+
+  <details class="faq-item">
+    <summary>Is my account and API key secure?<span class="chev">+</span></summary>
+    <div class="ans">Yes. Secrets are hashed (never stored in plaintext), API keys are shown only once at generation, every endpoint is rate-limited, and all sensitive actions are audit-logged. Treat your API key like a password — if it leaks, regenerate it instantly from Settings and the old key dies immediately.</div>
+  </details>
+</div>
+{% endblock %}
