@@ -168,17 +168,15 @@ def _do_deliver(
     unit = db.effective_price(product_id, variant_id, reseller["discount_percent"], _variant_price(product, variant_id))
     total = round(unit * quantity, 2)
 
-    # Balance check BEFORE dispensing (never charge for nothing).
-    # Both ledgers (local panel + linked SellAuth customer) must have funds;
-    # deduct_both_balances enforces and deducts both, keeping them in sync.
-    balance = db.get_balance(reseller["id"])
-    if balance < total:
+    # Funds gate: SellAuth is source of truth; local is reconciled up to match
+    # so a $0 local mirror never blocks a purchase the reseller CAN afford.
+    # Raises ValueError (402) if EITHER ledger is genuinely short.
+    try:
+        db.ensure_funds(reseller["id"], total)
+    except ValueError as e:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
-        raise HTTPException(
-            status_code=402,
-            detail=f"Insufficient panel balance: ${balance:.2f} available, ${total:.2f} needed",
-        )
+        raise HTTPException(status_code=402, detail=str(e))
 
     # Dispense (atomic bulk; returns [] without consuming if stock insufficient)
     keys = sellauth.dispense_bulk(product_id, variant_id, quantity)

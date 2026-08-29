@@ -1218,6 +1218,33 @@ def deduct_both_balances(reseller_id: int, amount: float, order_id: int, descrip
     return deduct_balance(reseller_id, amount, order_id, description)
 
 
+def ensure_funds(reseller_id: int, amount: float) -> None:
+    """Gate a purchase on AVAILABLE funds. SellAuth is the source of truth for
+    the reseller's wallet; the local panel balance is kept as a mirror. If the
+    local balance is short but SellAuth has funds, reconcile local UP to the
+    SellAuth balance (never wipe extra local credit) so the sale can proceed.
+    Raises ValueError (with a clear message) if EITHER ledger is short."""
+    if amount <= 0:
+        return
+    email = get_sellauth_email(reseller_id)
+    if email:
+        cid = _sellauth_client.get_customer_id_by_email(email)
+        if cid:
+            sa_bal = _sellauth_client.get_customer_balance(email)
+            if sa_bal is None:
+                raise ValueError("Could not read SellAuth balance (check API token / link)")
+            if sa_bal < amount:
+                raise ValueError(f"Insufficient SellAuth balance: ${sa_bal:.2f} available, ${amount:.2f} needed")
+            # Top up local to match SellAuth so local is never the blocker.
+            local = get_balance(reseller_id)
+            if local < sa_bal:
+                add_balance(reseller_id, sa_bal - local, "Reconciled from SellAuth")
+            return
+    # No SellAuth link: fall back to local-only gating.
+    if get_balance(reseller_id) < amount:
+        raise ValueError(f"Insufficient panel balance: ${get_balance(reseller_id):.2f} available, ${amount:.2f} needed")
+
+
 def get_transactions(reseller_id: int, limit: int = 50) -> list[dict]:
     conn = get_db()
     try:
