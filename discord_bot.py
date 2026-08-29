@@ -287,7 +287,10 @@ bot.tree.add_command(reseller_group)
 # ---------- Runner ----------
 
 async def start_bot():
-    """Start the Discord bot. Called from main.py startup."""
+    """Start the Discord bot. Called from main.py startup.
+
+    Runs in the background; never lets a Discord failure crash the web server.
+    """
     token = settings.DISCORD_BOT_TOKEN
     if not token:
         print("[Discord] DISCORD_BOT_TOKEN not set — bot disabled")
@@ -295,7 +298,11 @@ async def start_bot():
     if not OWNER_ID:
         print("[Discord] DISCORD_OWNER_ID not set — bot disabled")
         return
-    await bot.start(token)
+    try:
+        await bot.start(token)
+    except Exception as e:
+        # A bad/expired token or network error must not take down the API.
+        print(f"[Discord] bot failed to start (disabled): {type(e).__name__}: {e}")
 
 
 async def stop_bot():
