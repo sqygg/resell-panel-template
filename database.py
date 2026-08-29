@@ -1186,13 +1186,16 @@ def deduct_balance(reseller_id: int, amount: float, order_id: int, description: 
     return float(row["balance"]) if row else 0.0
 
 
-def deduct_both_balances(reseller_id: int, amount: float, order_id: int, description: str = "") -> float:
+def deduct_both_balances(reseller_id: int, amount: float, order_id: int, description: str = "", shop_id: str | None = None) -> float:
     """Deduct `amount` from BOTH the local panel balance and the linked SellAuth
     customer balance, keeping the two ledgers in sync. Fails (raises ValueError)
     if EITHER ledger is short — never leaves the two out of step.
 
     Order is deliberate: SellAuth is charged FIRST. If the SellAuth call fails we
     raise before touching the local ledger, so a partial deduction can't happen.
+
+    `shop_id` is the SellAuth shop the customer/buyer belongs to (from the webhook
+    payload) — required so balance ops hit the correct store, not just SELLAUTH_SHOP_ID.
     """
     if amount <= 0:
         raise ValueError("Amount must be positive")
@@ -1202,9 +1205,9 @@ def deduct_both_balances(reseller_id: int, amount: float, order_id: int, descrip
 
     email = get_sellauth_email(reseller_id)
     if email:
-        cid = _sellauth_client.get_customer_id_by_email(email)
+        cid = _sellauth_client.get_customer_id_by_email(email, shop_id=shop_id)
         if cid:
-            sa_bal = _sellauth_client.get_customer_balance(email)
+            sa_bal = _sellauth_client.get_customer_balance(email, shop_id=shop_id)
             if sa_bal is None:
                 raise ValueError("Could not read SellAuth balance (check API token / link)")
             if sa_bal < amount:
@@ -1212,7 +1215,7 @@ def deduct_both_balances(reseller_id: int, amount: float, order_id: int, descrip
             # Charge SellAuth first; if it fails, local is untouched.
             # NB: invoice_id is a SellAuth INVOICE id, not our panel order id —
             # omit it to avoid 422s (it's optional per the API).
-            resp = _sellauth_client.edit_customer_balance(cid, -amount, description=description)
+            resp = _sellauth_client.edit_customer_balance(cid, -amount, description=description, shop_id=shop_id)
             if not resp.get("ok"):
                 raise ValueError(
                     f"SellAuth balance deduction failed: HTTP {resp.get('status')} {resp.get('error', '')}".strip()
@@ -1222,19 +1225,23 @@ def deduct_both_balances(reseller_id: int, amount: float, order_id: int, descrip
     return deduct_balance(reseller_id, amount, order_id, description)
 
 
-def ensure_funds(reseller_id: int, amount: float) -> None:
+def ensure_funds(reseller_id: int, amount: float, shop_id: str | None = None) -> None:
     """Gate a purchase on AVAILABLE funds. SellAuth is the source of truth for
     the reseller's wallet; the local panel balance is kept as a mirror. If the
     local balance is short but SellAuth has funds, reconcile local UP to the
     SellAuth balance (never wipe extra local credit) so the sale can proceed.
-    Raises ValueError (with a clear message) if EITHER ledger is short."""
+    Raises ValueError (with a clear message) if EITHER ledger is short.
+
+    `shop_id` scopes the SellAuth customer lookup to the correct store (see
+    deduct_both_balances).
+    """
     if amount <= 0:
         return
     email = get_sellauth_email(reseller_id)
     if email:
-        cid = _sellauth_client.get_customer_id_by_email(email)
+        cid = _sellauth_client.get_customer_id_by_email(email, shop_id=shop_id)
         if cid:
-            sa_bal = _sellauth_client.get_customer_balance(email)
+            sa_bal = _sellauth_client.get_customer_balance(email, shop_id=shop_id)
             if sa_bal is None:
                 raise ValueError("Could not read SellAuth balance (check API token / link)")
             if sa_bal < amount:
