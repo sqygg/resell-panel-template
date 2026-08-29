@@ -1,25 +1,69 @@
-"""SMTP transactional email (2FA codes, alerts).
+"""Transactional email (2FA codes, alerts).
 
-Credentials come from config (SMTP_HOST/PORT/USER/PASS/FROM).
-If SMTP is not configured, send() returns False and callers should
-degrade gracefully (e.g. log) rather than crash the request.
+Primary transport is the Brevo HTTPS email API (api.brevo.com/v3/smtp/email)
+on port 443 — Railway permits outbound 443, whereas it blocks mail ports
+(587/465/2525), which made the old SMTP path time out.
+
+If BREVO_API_KEY is set we use the API. Otherwise we fall back to the legacy
+SMTP transport (only useful off-Railway). SMTP_* env vars remain supported
+for that fallback.
 """
 import logging
 import smtplib
 import ssl
 from email.message import EmailMessage
 
+import httpx
 from config import settings
 
 logger = logging.getLogger("reseller-panel")
 
+_BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
+
+
+# ---------- Brevo API (preferred) ----------
+
+def _brevo_configured() -> bool:
+    return bool(settings.BREVO_API_KEY and settings.SMTP_FROM)
+
+
+def send_email_brevo(to: str, subject: str, body: str) -> bool:
+    """Send via Brevo HTTPS API (port 443). Returns True on success."""
+    if not _brevo_configured():
+        return False
+    payload = {
+        "sender": {"email": settings.SMTP_FROM},
+        "to": [{"email": to}],
+        "subject": subject,
+        "textContent": body,
+    }
+    try:
+        r = httpx.post(
+            _BREVO_API_URL,
+            headers={"api-key": settings.BREVO_API_KEY, "Content-Type": "application/json"},
+            json=payload,
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            logger.error(f"[mailer] Brevo API rejected send to {to}: {r.status_code} {r.text[:300]}")
+            return False
+        logger.info(f"[mailer] Brevo API sent '{subject}' to {to}")
+        return True
+    except Exception as e:
+        logger.error(f"[mailer] Brevo API send failed to {to}: {type(e).__name__}: {e}")
+        return False
+
+
+# ---------- Legacy SMTP fallback (off-Railway only) ----------
 
 def smtp_configured() -> bool:
     return bool(settings.SMTP_HOST and settings.SMTP_USER and settings.SMTP_FROM)
 
 
-def send_email(to: str, subject: str, body: str) -> bool:
-    """Send a plaintext email. Returns True on success, False if misconfigured/unreachable."""
+def send_email_smtp(to: str, subject: str, body: str) -> bool:
+    """Send a plaintext email over SMTP. Returns True on success, False if
+    misconfigured/unreachable. NOTE: Railway blocks mail ports, so this only
+    works outside Railway."""
     if not smtp_configured():
         logger.warning(f"[mailer] SMTP not configured — cannot send to {to}: {subject}")
         return False
@@ -47,6 +91,15 @@ def send_email(to: str, subject: str, body: str) -> bool:
     except Exception as e:
         logger.error(f"[mailer] failed to send to {to}: {type(e).__name__}: {e}")
         return False
+
+
+# ---------- Unified dispatch ----------
+
+def send_email(to: str, subject: str, body: str) -> bool:
+    """Send using Brevo API when configured, else SMTP fallback."""
+    if _brevo_configured():
+        return send_email_brevo(to, subject, body)
+    return send_email_smtp(to, subject, body)
 
 
 def send_2fa_code(to: str, code: str) -> bool:

@@ -71,11 +71,18 @@ class Settings:
     MYSQL_DATABASE: str = os.getenv("MYSQL_DATABASE", "")
 
     # ---------- SMTP (2FA / transactional email) ----------
+    # Legacy transport — only used when BREVO_API_KEY is NOT set (Railway blocks
+    # mail ports, so prefer the Brevo HTTPS API instead).
     SMTP_HOST: str = os.getenv("SMTP_HOST", "")
     SMTP_PORT: int = int(os.getenv("SMTP_PORT", "465"))
     SMTP_USER: str = os.getenv("SMTP_USER", "")
     SMTP_PASS: str = os.getenv("SMTP_PASS", "")
     SMTP_FROM: str = os.getenv("SMTP_FROM", "")
+
+    # ---------- Brevo HTTPS email API (preferred transport) ----------
+    # Used for 2FA codes on Railway (port 443, which egress allows). Takes
+    # priority over SMTP when set. Sender must still be a verified Brevo sender.
+    BREVO_API_KEY: str = os.getenv("BREVO_API_KEY", "")
 
     # ---------- Production ----------
     DEBUG: bool = os.getenv("DEBUG", "false").lower() == "true"
