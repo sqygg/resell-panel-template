@@ -596,32 +596,6 @@ def get_reseller_by_key(api_key: str) -> dict | None:
     return dict(row) if row else None
 
 
-def get_reseller_by_username_password(username: str, password: str) -> dict | None:
-    if not username or not password:
-        return None
-    key_hash = hashlib.sha256(password.encode()).hexdigest()
-    conn = get_db()
-    try:
-        row = conn.execute(_ph("SELECT * FROM resellers WHERE username = ? AND api_key_hash = ? AND active = 1"),
-            (username.strip(), key_hash)).fetchone()
-    finally:
-        conn.close()
-    return dict(row) if row else None
-
-
-def get_reseller_by_email_password(email: str, password: str) -> dict | None:
-    if not email or not password:
-        return None
-    key_hash = hashlib.sha256(password.encode()).hexdigest()
-    conn = get_db()
-    try:
-        row = conn.execute(_ph("SELECT * FROM resellers WHERE email = ? AND api_key_hash = ? AND active = 1"),
-            (email.strip().lower(), key_hash)).fetchone()
-    finally:
-        conn.close()
-    return dict(row) if row else None
-
-
 def get_reseller_by_email(email: str) -> dict | None:
     """Lookup an active reseller by email only (no password). Used by the
     email-OTP login flow; existence is intentionally not revealed to callers."""

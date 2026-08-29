@@ -1,15 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Password · Astro Panel{% endblock %}
+{% block title %}API & Connections · Astro Panel{% endblock %}
 {% block content %}
 <div class="page">
   <div class="container">
     <div class="page-head">
-      <div><h1>Your Password</h1><p class="muted">Use this password to authenticate API orders. This is also your /auth sign-in password.</p></div>
+      <div><h1>API &amp; Connections</h1><p class="muted">Manage your API key, SellAuth link, webhook secret, and Discord account.</p></div>
       <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
     </div>
 
     <div class="card" style="padding:1.5rem;">
-      <p class="muted" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.06em;">Current Password</p>
+      <div class="page-head">
+        <div><h4>API Key</h4><p class="muted">Use this key to authenticate API orders. Sign in with your email + 2FA code — no password needed.</p></div>
+      </div>
       {% if api_key_mask %}
         <code id="akey" class="secret" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;">{{ api_key_mask }}</code>
         <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
@@ -17,7 +19,7 @@
           <span id="keyStatus" class="dim" style="font-size:0.8rem;"></span>
         </div>
         <a href="/reseller/api/regen" class="btn btn-danger btn-sm" style="margin-top:0.75rem;" onclick="return confirm('Regenerate? Old key stops immediately.')">Regenerate</a>
-        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">For security the full password is never sent to your browser. Click Reveal &amp; Copy to fetch it once over an authenticated request. Regenerating invalidates the old password — the new one is shown in clear text once on the next page.</p>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">For security the full key is never sent to your browser. Click Reveal &amp; Copy to fetch it once over an authenticated request. Regenerating invalidates the old key — the new one is shown in clear text once on the next page.</p>
       {% else %}
         <p class="dim">No key available. Contact the store owner.</p>
       {% endif %}
