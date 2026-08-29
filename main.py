@@ -141,12 +141,13 @@ async def shutdown():
 
 if __name__ == "__main__":
     import os
+    # Reload is dev-only; never enable in a container (breaks Railway healthcheck).
     port = int(os.getenv("PORT", str(settings.PORT)))
     uvicorn.run(
         "main:app",
         host=settings.HOST,
         port=port,
-        reload=settings.DEBUG,
+        reload=False,
         log_level="warning",
         access_log=False,
     )
