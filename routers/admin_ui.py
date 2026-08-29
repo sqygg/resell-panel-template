@@ -161,6 +161,25 @@ def reseller_create(
     return HTMLResponse(key_html)
 
 
+@router.post("/resellers/create-test")
+def reseller_create_test(request: Request):
+    """Create a fixed test reseller (email=Test, password=Test). No caller IP logged."""
+    if not check_ui_auth(request):
+        return RedirectResponse(url="/login")
+    try:
+        db.create_reseller(
+            name="Test",
+            discount_percent=0,
+            ip="",  # do NOT log the admin's IP for test accounts
+            username="test",
+            email="Test",
+            raw_key="Test",
+        )
+    except ValueError as e:
+        return HTMLResponse(f"<script>alert('{str(e)}');window.location='/resellers';</script>", status_code=400)
+    return RedirectResponse(url="/resellers", status_code=303)
+
+
 @router.post("/resellers/{reseller_id}/update")
 def reseller_update(
     request: Request,

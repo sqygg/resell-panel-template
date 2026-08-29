@@ -315,15 +315,16 @@ def log_login_attempt(ip: str, success: bool):
 
 # ---------- Reseller CRUD ----------
 
-def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "", username: str = "", email: str = "") -> dict:
-    """Create a reseller. Returns the RAW API KEY once — stored encrypted, revealable later."""
+def create_reseller(name: str, discount_percent: float, webhook_url: str = "", ip: str = "", referred_by_code: str = "", username: str = "", email: str = "", raw_key: str = "") -> dict:
+    """Create a reseller. Returns the RAW API KEY once — stored encrypted, revealable later.
+    If raw_key is provided, it is used as the reseller password (e.g. test accounts)."""
     name = _validate_name(name)
     discount = _validate_discount(discount_percent)
     webhook = _validate_webhook_url(webhook_url)
     username = _validate_username(username) if username else _validate_username(name)
     email = (email or "").strip().lower()[:200]
 
-    raw_key = _generate_raw_key()
+    raw_key = raw_key or _generate_raw_key()
     key_enc = _encrypt_key(raw_key)
     key_prefix = raw_key[:16]  # for display only
 

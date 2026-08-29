@@ -6,7 +6,12 @@
             <h1>Resellers</h1>
             <p>Manage your resellers, discounts, and balances.</p>
         </div>
-        <a href="#add-modal" class="btn btn-primary">+ Add Reseller</a>
+        <div style="display:flex;gap:0.5rem;">
+            <form method="post" action="/resellers/create-test">
+                <button type="submit" class="btn btn-ghost">+ Test Reseller</button>
+            </form>
+            <a href="#add-modal" class="btn btn-primary">+ Add Reseller</a>
+        </div>
     </div>
 
     <div class="table-wrap">
