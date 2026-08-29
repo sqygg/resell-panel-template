@@ -42,9 +42,22 @@ class SellAuthClient:
         products = data.get("data", [])
         return products
 
-    def get_product(self, product_id: str) -> dict | None:
-        """Fetch a single product by ID."""
-        return self._request("GET", f"/shops/{self.shop_id}/products/{product_id}")
+    def get_product(self, product_id: str) -> dict:
+        """Fetch a single product by ID. Returns {"ok": True, "data": {...}} on
+        success, or {"ok": False, "status": int, "error": str} on failure (so
+        callers can surface the REAL SellAuth reason instead of 'Product not found')."""
+        url = f"{self.base}/shops/{self.shop_id}/products/{product_id}"
+        try:
+            with httpx.Client(timeout=15) as client:
+                resp = client.get(url, headers=self.headers)
+                if resp.status_code == 200:
+                    try:
+                        return {"ok": True, "data": resp.json()}
+                    except Exception:
+                        return {"ok": True, "data": {}}
+                return {"ok": False, "status": resp.status_code, "error": resp.text[:400]}
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": str(e)[:400]}
 
     def update_stock(self, product_id: str, variant_id: str, quantity: int) -> bool:
         """Update stock quantity for a product variant."""

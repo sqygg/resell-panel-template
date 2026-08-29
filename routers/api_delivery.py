@@ -154,8 +154,10 @@ def _do_deliver(
         raise HTTPException(status_code=400, detail="Quantity must be 1-50")
 
     product = sellauth.get_product(product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+    if not product.get("ok"):
+        detail = f"SellAuth product {product_id} lookup failed: HTTP {product.get('status')} {product.get('error', '')}".strip()
+        raise HTTPException(status_code=404, detail=detail)
+    product = product.get("data", {})
 
     variant_id = _resolve_variant(product_id, variant_id, product)
     vname = "Default"
