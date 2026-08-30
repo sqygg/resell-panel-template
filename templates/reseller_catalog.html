@@ -11,6 +11,11 @@
       <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
     </div>
 
+    <div style="display:flex;gap:0.6rem;margin-bottom:1.5rem;flex-wrap:wrap;">
+      <a href="/reseller/catalog/export" class="btn btn-primary btn-sm" target="_blank">⬇ Bulk export (txt)</a>
+      <a href="/reseller/catalog.json" class="btn btn-ghost btn-sm" target="_blank">⬇ Catalog JSON</a>
+    </div>
+
     <div class="cards" style="margin-bottom:2rem;">
       <div class="card"><div class="label">Balance</div><div class="value green">${{ "%.2f"|format(balance) }}</div>
         <div class="sub">SellAuth store{% if sellauth_email %} · {{ sellauth_email }}{% else %} · <a href="/reseller/api" style="color:#fff;">link email</a>{% endif %}{% if balance_source == 'cache' %} · cached{% endif %}</div></div>

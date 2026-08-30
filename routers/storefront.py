@@ -4,7 +4,7 @@ import uuid
 import time
 import httpx
 from fastapi import APIRouter, Request, Form, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 import database as db
 from security import get_client_ip
@@ -248,6 +248,69 @@ def reseller_catalog(request: Request):
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
         request=request, reseller=r, products=products, balance=balance_info["balance"],
         balance_source=balance_info["source"], sellauth_email=balance_info["email"]))
+
+
+@router.get("/reseller/catalog.json")
+def reseller_catalog_json(request: Request):
+    """Machine-readable catalog for resellers: every product + variant with its
+    ready-to-paste SellAuth Dynamic Delivery URL. Powers 'Connect your store'-style
+    bulk import and one-click copy."""
+    r = require_reseller(request)
+    products = sellauth.get_products_for_webhook()
+    base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
+    api_key = db.reveal_api_key(r["id"])
+    out = []
+    for p in products:
+        variants = []
+        for v in p.get("variants", []) or []:
+            vid = v.get("variant_id") or v.get("id")
+            variants.append({
+                "variant_id": vid,
+                "name": v.get("name", "Default"),
+                "price": v.get("price"),
+                "stock": v.get("stock"),
+                "delivery_url": f"{base}/api/deliver/{api_key}/product/{p['id']}?variant_id={vid}",
+            })
+        if not variants:
+            variants.append({
+                "variant_id": None,
+                "name": "Default",
+                "price": p.get("price"),
+                "stock": p.get("stock"),
+                "delivery_url": f"{base}/api/deliver/{api_key}/product/{p['id']}",
+            })
+        out.append({
+            "product_id": p["id"],
+            "name": p.get("name", "Unknown"),
+            "price": p.get("price"),
+            "currency": p.get("currency", "USD"),
+            "variants": variants,
+        })
+    return JSONResponse(content={
+        "shop": base,
+        "reseller": r.get("email"),
+        "products": out,
+    })
+
+
+@router.get("/reseller/catalog/export")
+def reseller_catalog_export(request: Request):
+    """One-click bulk export: plain-text list of product/variant -> delivery URL,
+    ready to paste into SellAuth (one Dynamic URL per line)."""
+    r = require_reseller(request)
+    products = sellauth.get_products_for_webhook()
+    base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
+    api_key = db.reveal_api_key(r["id"])
+    lines = []
+    for p in products:
+        for v in (p.get("variants", []) or []):
+            vid = v.get("variant_id") or v.get("id")
+            url = f"{base}/api/deliver/{api_key}/product/{p['id']}?variant_id={vid}"
+            lines.append(f"{p.get('name','?')} | {v.get('name','Default')} | {url}")
+        if not p.get("variants"):
+            url = f"{base}/api/deliver/{api_key}/product/{p['id']}"
+            lines.append(f"{p.get('name','?')} | Default | {url}")
+    return PlainTextResponse("\n".join(lines), media_type="text/plain")
 
 
 @router.post("/reseller/alias/{product_id}")
