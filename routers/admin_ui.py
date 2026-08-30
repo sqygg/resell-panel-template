@@ -285,10 +285,12 @@ def stock_page(request: Request):
 def admin_orders(request: Request):
     if not check_ui_auth(request):
         return RedirectResponse(url="/login")
-    orders = db.get_all_orders(100)
+    sort = request.query_params.get("sort", "latest")
+    orders = db.get_all_orders(100, asc=(sort == "oldest"))
     return templates.TemplateResponse("admin_orders.html", {
         "request": request,
         "orders": orders,
+        "sort": sort,
     })
 
 

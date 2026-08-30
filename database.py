@@ -1362,10 +1362,11 @@ def get_order(order_id: int) -> dict | None:
     return dict(row) if row else None
 
 
-def get_all_orders(limit: int = 100) -> list[dict]:
+def get_all_orders(limit: int = 100, asc: bool = False) -> list[dict]:
     conn = get_db()
     try:
-        rows = conn.execute(_ph("SELECT * FROM orders ORDER BY created_at DESC LIMIT ?"), (limit,)).fetchall()
+        order = "ASC" if asc else "DESC"
+        rows = conn.execute(_ph(f"SELECT * FROM orders ORDER BY created_at {order} LIMIT ?"), (limit,)).fetchall()
     finally:
         conn.close()
     return [dict(r) for r in rows]

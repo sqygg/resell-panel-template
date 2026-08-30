@@ -42,7 +42,7 @@
               <td style="max-width:300px;">
                 <code class="secret-url" style="font-size:0.7rem;word-break:break-all;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
                 <div style="display:flex;gap:0.4rem;margin-top:0.45rem;flex-wrap:wrap;">
-                  <button type="button" class="btn btn-primary btn-sm copy-btn" style="position:relative;" data-copy-target="du-{{ p.id }}-{{ v.variant_id }}"><span class="lbl">Copy</span><span class="tick">✓</span></button>
+                  <button type="button" class="btn btn-ghost btn-sm reveal-url" data-target="du-{{ p.id }}-{{ v.variant_id }}">Show key</button>
                   <form method="post" action="/reseller/api/regen" style="margin:0;" onsubmit="return confirm('Revoke this link? Regenerates your API key — ALL existing delivery URLs stop working and must be re-copied.');">
                     <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
                   </form>
@@ -61,22 +61,28 @@
 <script>
 (function () {
   var btn = document.getElementById('blurToggle');
-  if (!btn) return;
-  var KEY = 'astro_urls_visible';
-  function apply(state) {
-    document.body.classList.toggle('urls-visible', state);
-    btn.textContent = state ? '🙈 Hide URLs' : '👁 Show URLs';
+  if (btn) {
+    var KEY = 'astro_urls_visible';
+    function apply(state) {
+      document.body.classList.toggle('urls-visible', state);
+      btn.textContent = state ? '🙈 Hide URLs' : '👁 Show URLs';
+    }
+    apply(localStorage.getItem(KEY) === '1');
+    btn.addEventListener('click', function () {
+      var next = !document.body.classList.contains('urls-visible');
+      localStorage.setItem(KEY, next ? '1' : '0');
+      apply(next);
+    });
   }
-  var saved = localStorage.getItem(KEY) === '1';
-  apply(saved);
-  btn.addEventListener('click', function () {
-    var next = !document.body.classList.contains('urls-visible');
-    localStorage.setItem(KEY, next ? '1' : '0');
-    apply(next);
-  });
-  // Click a blurred URL to reveal it temporarily without toggling global state.
-  document.querySelectorAll('.secret-url').forEach(function (el) {
-    el.addEventListener('click', function () { el.style.filter = 'none'; });
+  // Per-variant Show/hide key toggle (blur/unblur just that one URL).
+  document.querySelectorAll('.reveal-url').forEach(function (el) {
+    el.addEventListener('click', function () {
+      var code = document.getElementById(el.getAttribute('data-target'));
+      if (!code) return;
+      var hidden = code.style.filter === 'none';
+      code.style.filter = hidden ? '' : 'none';
+      el.textContent = hidden ? 'Show key' : 'Hide key';
+    });
   });
 })();
 </script>
