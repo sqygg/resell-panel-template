@@ -56,8 +56,7 @@
     .copy-btn .lbl { transition: opacity .15s; }
     .copy-btn.copied .lbl { opacity: 0; position: absolute; }
     /* Secret URL blur toggle (catalog delivery links) */
-    .secret-url { filter: blur(5px); transition: filter .15s; cursor: pointer; user-select: none; }
-    body.urls-visible .secret-url { filter: none; user-select: text; }
+    .secret-url { filter: blur(5px); transition: filter .15s; cursor: pointer; user-select: text; }
     /* Scroll progress bar */
     .scroll-progress {
       position: fixed; top: 0; left: 0; height: 3px; width: 0; z-index: 300;
