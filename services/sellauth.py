@@ -101,24 +101,35 @@ class SellAuthClient:
                          webhook_secret: str = "") -> dict:
         """Fulfil an infinite-stock (dynamic) product by calling the developer
         webhook URL set on the SellAuth variant — exactly what SellAuth itself does
-        at checkout. No reseller program or balance needed. The request is signed
+        at checkout. No reseller program or balance needed. The request mirrors
+        SellAuth's full INVOICE.ITEM.DELIVER-DYNAMIC invoice payload and is signed
         with HMAC-SHA256 (raw JSON body, webhook secret) + X-Timestamp +
-        Idempotency-Key, mirroring SellAuth's signature scheme so the developer
-        endpoint accepts it as a genuine SellAuth dynamic-delivery call.
+        Idempotency-Key, so the developer endpoint accepts it as a genuine call.
         """
         if not dynamic_url:
             return {"ok": False, "status": 0, "error": "No dynamic_url on variant"}
+        import time as _t, hmac as _hmac, hashlib as _hl, secrets as _sec, json as _json
+        sid = int(shop_id) if shop_id else int(self.shop_id or 0)
+        pid = int(product_id) if str(product_id).isdigit() else product_id
+        vid = int(variant_id) if str(variant_id).isdigit() else variant_id
+        now_iso = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
+        invoice_id = int(_t.time())
+        unique_id = f"{_sec.token_hex(6)}-{invoice_id}"
+        # Minimal canonical payload: only the fields SellAuth's own dynamic-delivery
+        # example sends at the item level. Extra fields are intentionally omitted so
+        # strict webhooks that reject unknown keys still accept the call.
         payload = {
             "event": "INVOICE.ITEM.DELIVER-DYNAMIC",
+            "id": invoice_id,
+            "unique_id": unique_id,
             "email": customer_email or "",
-            "shop_id": int(shop_id) if shop_id else int(self.shop_id or 0),
+            "shop_id": sid,
             "item": {
-                "product_id": int(product_id) if str(product_id).isdigit() else product_id,
-                "variant_id": int(variant_id) if str(variant_id).isdigit() else variant_id,
+                "product_id": pid,
+                "variant_id": vid,
                 "quantity": quantity,
             },
         }
-        import time as _t, hmac as _hmac, hashlib as _hl, secrets as _sec, json as _json
         raw = _json.dumps(payload, separators=(",", ":")).encode()
         headers = {"Content-Type": "application/json"}
         if webhook_secret:
