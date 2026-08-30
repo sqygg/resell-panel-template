@@ -92,8 +92,26 @@ def _plain(status_code: int, text: str):
 
 
 class DeliveryRequest(BaseModel):
-    product_id: str
+    product_id: str | None = None
     variant_id: str | int | None = None
+    item: dict | None = None  # SellAuth nests product_id/variant_id here
+
+    def resolved(self) -> tuple[str | None, str | None, int, str]:
+        pid = self.product_id
+        vid = self.variant_id
+        qty = self.quantity
+        email = self.customer_email
+        if not pid and self.item:
+            pid = self.item.get("product_id")
+            vid = vid if vid is not None else self.item.get("variant_id")
+            try:
+                qty = int(self.item.get("quantity", qty) or qty)
+            except (TypeError, ValueError):
+                pass
+            email = email or (self.item.get("email") or "")
+        return (str(pid).strip() if pid not in (None, "") else None,
+                str(vid).strip() if vid not in (None, "") else None,
+                qty, email)
     quantity: int = 1
     customer_email: str = ""
     order_id: str | None = None
@@ -327,10 +345,10 @@ def _do_deliver(
 
 @router.post("/{api_key}")
 def deliver_post(api_key: str, body: DeliveryRequest, request: Request):
-    return _do_deliver(
-        api_key, body.product_id, body.variant_id, body.quantity,
-        body.customer_email, body.order_id, request,
-    )
+    pid, vid, qty, email = body.resolved()
+    if not pid:
+        raise HTTPException(status_code=400, detail="Missing product_id (top-level or item.product_id)")
+    return _do_deliver(api_key, pid, vid, qty, email, body.order_id, request)
 
 
 @router.get("/{api_key}")
