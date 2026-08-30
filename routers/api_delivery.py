@@ -216,64 +216,14 @@ def _do_deliver(
         db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
         raise HTTPException(status_code=402, detail=str(e))
 
-    # Dispense — two paths:
-    #  • Finite stock: pull real keys from SellAuth stock (atomic).
-    #  • Infinite stock (-1, dynamic/generator product): SellAuth holds 0 stored
-    #    keys. The real deliverable comes from the developer webhook URL set on the
-    #    SellAuth variant (dynamic_url) — exactly what SellAuth POSTs to at checkout.
-    #    We call it directly: no reseller program, no balance, no paid plan needed.
-    is_infinite = False
-    dynamic_url = ""
-    for v in product.get("variants") or []:
-        if str(v.get("id")) == variant_id:
-            is_infinite = (int(v.get("stock", 0) or 0) == -1)
-            dynamic_url = v.get("dynamic_url") or product.get("dynamic_url") or ""
-            break
-    if is_infinite:
-        if dynamic_url:
-            # Source-shop products are signed by SellAuth with the SHOP webhook secret
-            # (Storefront > Configure > Miscellaneous), not the per-reseller card (which
-            # is for inbound verification). Use the source shop secret for outbound signing.
-            secret = settings.SELLAUTH_WEBHOOK_SECRET or ""
-            if not secret:
-                elapsed = (time.time() - start) * 1000
-                db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
-                raise HTTPException(
-                    status_code=409,
-                    detail="Set SELLAUTH_WEBHOOK_SECRET to your shop's webhook secret "
-                           "(Storefront > Configure > Miscellaneous) to sign dynamic delivery.")
-            rdel = sellauth.dynamic_deliver(
-                dynamic_url, product_id, variant_id, quantity,
-                customer_email or "", shop_id=shop_id, webhook_secret=secret)
-            if not rdel.get("ok"):
-                elapsed = (time.time() - start) * 1000
-                db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Dynamic delivery failed: HTTP {rdel.get('status')} {rdel.get('error', '')}".strip())
-            keys = rdel.get("keys") or []
-        else:
-            # No developer webhook set on the variant → try SellAuth Reseller Dynamic
-            # Delivery as a fallback (requires a reseller token). Optional path.
-            token = db.get_sellauth_reseller_token(reseller["id"]) or settings.SELLAUTH_RESELLER_TOKEN
-            if not token:
-                elapsed = (time.time() - start) * 1000
-                db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
-                raise HTTPException(
-                    status_code=409,
-                    detail="Infinite-stock product has no dynamic delivery URL set on the variant. "
-                           "Set the developer webhook URL in your SellAuth product, or configure a "
-                           "SellAuth reseller token.")
-            rdel = sellauth.reseller_deliver(token, product_id, variant_id, quantity)
-            if not rdel.get("ok"):
-                elapsed = (time.time() - start) * 1000
-                db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Source delivery failed: HTTP {rdel.get('status')} {rdel.get('error', '')}".strip())
-            keys = rdel.get("keys") or []
-    else:
-        keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+    # Dispense — real keys always come from SellAuth stock (atomic, single source of
+    # truth). Infinite-stock (-1) developer products (e.g. PhxPanel-backed) have their
+    # real keys generated at SellAuth's own checkout and stored as serials, so they are
+    # dispensed here exactly like finite products. The panel never impersonates SellAuth's
+    # dynamic-delivery webhook (the developer shim expects SellAuth's exact signed envelope,
+    # which only SellAuth can produce). If a product's stock is genuinely 0 the pool returns
+    # [] and we surface "Insufficient stock" — top up stock in SellAuth to fulfil.
+    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
     if keys is None:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
