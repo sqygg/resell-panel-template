@@ -216,8 +216,20 @@ def _do_deliver(
         db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
         raise HTTPException(status_code=402, detail=str(e))
 
-    # Dispense (atomic bulk; returns [] without consuming if stock insufficient)
-    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+    # Dispense — two paths:
+    #  • Finite stock: pull real keys from SellAuth stock (atomic).
+    #  • Infinite stock (-1, SellAuth generator product): SellAuth holds 0 stored
+    #    keys, so the API can't dispense. As the source shop, the panel generates a
+    #    unique deliverable token locally instead.
+    is_infinite = False
+    for v in product.get("variants") or []:
+        if str(v.get("id")) == variant_id:
+            is_infinite = (int(v.get("stock", 0) or 0) == -1)
+            break
+    if is_infinite:
+        keys = db.generate_deliverable(product_id, variant_id, quantity, customer_email or "")
+    else:
+        keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
     if keys is None:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)

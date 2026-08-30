@@ -126,6 +126,35 @@ def _generate_raw_key() -> str:
     return "rs_" + secrets.token_urlsafe(32)
 
 
+def generate_deliverable(product_id: str, variant_id: str, quantity: int = 1,
+                          customer_email: str = "") -> list[str]:
+    """Generate deliverables for infinite-stock (generator) products.
+
+    SellAuth generator products keep 0 stored keys, so the API cannot dispense
+    them. As the source shop, the panel mints a unique redeemable token per unit.
+    Tokens are recorded in `generated_deliverables` so refunds/audits can trace them.
+    """
+    out = []
+    for _ in range(quantity):
+        token = "ASTRO-" + secrets.token_hex(12).upper()
+        out.append(token)
+    try:
+        conn = get_db()
+        try:
+            conn.execute(_ph(
+                """INSERT INTO generated_deliverables
+                   (product_id, variant_id, customer_email, tokens, created_at)
+                   VALUES (?,?,?,?, datetime('now'))"""),
+                (str(product_id), str(variant_id), customer_email or "", "\n".join(out)))
+            conn.commit()
+        finally:
+            conn.close()
+    except Exception:
+        # Never block delivery on audit-log failure.
+        pass
+    return out
+
+
 # ---------- Input validation ----------
 
 def _validate_name(name: str) -> str:
@@ -288,6 +317,15 @@ def _ddl_init() -> str:
             channel TEXT NOT NULL DEFAULT 'manual',
             created_at TEXT NOT NULL DEFAULT ({n}),
             FOREIGN KEY (reseller_id) {fk}
+        );
+
+        CREATE TABLE IF NOT EXISTS generated_deliverables (
+            id {pk},
+            product_id TEXT NOT NULL,
+            variant_id TEXT NOT NULL DEFAULT '',
+            customer_email TEXT NOT NULL DEFAULT '',
+            tokens TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT ({n})
         );
 
         CREATE TABLE IF NOT EXISTS reseller_balances (
