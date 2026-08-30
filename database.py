@@ -307,17 +307,6 @@ def _ddl_init() -> str:
             FOREIGN KEY (reseller_id) {fk}
         );
 
-        CREATE TABLE IF NOT EXISTS supplier_mappings (
-            id {pk},
-            reseller_id INTEGER NOT NULL,
-            product_id VARCHAR(191) NOT NULL,
-            variant_id VARCHAR(191) NOT NULL DEFAULT '',
-            supplier_url_enc TEXT NOT NULL,
-            unit_price REAL NOT NULL DEFAULT -1,
-            created_at TEXT NOT NULL DEFAULT ({n}),
-            FOREIGN KEY (reseller_id) {fk}
-        );
-
         CREATE TABLE IF NOT EXISTS balance_transactions (
             id {pk},
             reseller_id INTEGER NOT NULL,
@@ -372,7 +361,6 @@ def _indexes_mysql() -> list[str]:
         "CREATE INDEX IF NOT EXISTS idx_applications_status ON applications(status, created_at)",
         "CREATE INDEX IF NOT EXISTS idx_resellers_key_hash ON resellers(api_key_hash)",
         "CREATE INDEX IF NOT EXISTS idx_resellers_referral_code ON resellers(referral_code)",
-        "CREATE INDEX IF NOT EXISTS idx_supplier_mappings_reseller ON supplier_mappings(reseller_id, product_id)",
     ]
 
 
@@ -860,104 +848,23 @@ def get_sellauth_webhook_secret(reseller_id: int) -> str:
         return ""
 
 
-# ---------- Supplier-backed products (reseller => external key source) ----------
-#
-# A supplier mapping tells the panel: "when a delivery webhook arrives for this
-# SellAuth product_id, instead of dispensing from OUR own SellAuth stock, FETCH the
-# key from this external supplier URL (exodus.fun-style simple-issue endpoint) and
-# return it to the buyer." This is how a reseller panel works across multiple
-# SellAuth shops / suppliers without needing API access to each shop.
-#
-# The supplier URL is stored ENCRYPTED at rest (it may embed an api_key). An
-# optional unit_price overrides the panel's pricing for that product.
+# ---------- Webhook secret section ----------
 
-def set_supplier_mapping(reseller_id: int, product_id: str, supplier_url: str,
-                         unit_price: float = -1.0, variant_id: str = "") -> None:
-    """Upsert a supplier mapping for (reseller, product, variant). Empty URL clears it."""
-    product_id = str(product_id).strip()
-    variant_id = str(variant_id).strip()
-    supplier_url = (supplier_url or "").strip()
-    enc = _encrypt_key(supplier_url) if supplier_url else ""
-    now = _now_iso()
+
+def get_sellauth_webhook_secret(reseller_id: int) -> str:
+    """Decrypt the reseller's stored SellAuth webhook secret, or '' if none."""
     conn = get_db()
     try:
-        existing = conn.execute(
-            _ph("SELECT id FROM supplier_mappings WHERE reseller_id = ? AND product_id = ? AND variant_id = ?"),
-            (reseller_id, product_id, variant_id),
-        ).fetchone()
-        if existing:
-            _exec(conn,
-                  "UPDATE supplier_mappings SET supplier_url_enc = ?, unit_price = ?, updated_at = ? WHERE id = ?",
-                  (enc, float(unit_price), now, existing["id"]))
-        else:
-            _exec(conn,
-                  "INSERT INTO supplier_mappings (reseller_id, product_id, variant_id, supplier_url_enc, unit_price, created_at) "
-                  "VALUES (?, ?, ?, ?, ?, ?)",
-                  (reseller_id, product_id, variant_id, enc, float(unit_price), now))
-        conn.commit()
+        row = conn.execute(_ph("SELECT sellauth_webhook_secret FROM resellers WHERE id = ?"), (reseller_id,)).fetchone()
     finally:
         conn.close()
-    _audit("supplier_mapping_set", reseller_id,
-           f"product={product_id} variant={variant_id} set={bool(supplier_url)}", "")
-
-
-def get_supplier_mapping(reseller_id: int, product_id: str, variant_id: str = "") -> dict | None:
-    """Return {'url': str, 'unit_price': float} for a mapped product, or None.
-
-    Tries an exact (product, variant) match first, then falls back to a
-    product-level mapping (variant_id=''), so a reseller can map a whole product
-    without specifying every variant.
-    """
-    product_id = str(product_id).strip()
-    variant_id = str(variant_id).strip()
-    conn = get_db()
-    try:
-        for vid in (variant_id, ""):
-            row = conn.execute(
-                _ph("SELECT supplier_url_enc, unit_price FROM supplier_mappings "
-                    "WHERE reseller_id = ? AND product_id = ? AND variant_id = ?"),
-                (reseller_id, product_id, vid),
-            ).fetchone()
-            if row:
-                break
-    finally:
-        conn.close()
-    if not row:
-        return None
-    enc = (row["supplier_url_enc"] or "") if isinstance(row, dict) else (row[0] or "")
+    enc = (row["sellauth_webhook_secret"] or "") if row else ""
     if not enc:
-        return None
-    url = _decrypt_key(enc)
-    if not url:
-        return None
-    price = float((row["unit_price"] if isinstance(row, dict) else row[1]) or -1)
-    return {"url": url, "unit_price": price}
-
-
-def list_supplier_mappings(reseller_id: int) -> list[dict]:
-    """List a reseller's supplier mappings (URL masked for display)."""
-    conn = get_db()
+        return ""
     try:
-        rows = conn.execute(
-            _ph("SELECT id, product_id, variant_id, supplier_url_enc, unit_price, created_at "
-                "FROM supplier_mappings WHERE reseller_id = ? ORDER BY id DESC"),
-            (reseller_id,),
-        ).fetchall()
-    finally:
-        conn.close()
-    out = []
-    for r in rows:
-        enc = r["supplier_url_enc"] or ""
-        url = _decrypt_key(enc) if enc else ""
-        out.append({
-            "id": r["id"],
-            "product_id": r["product_id"],
-            "variant_id": r["variant_id"],
-            "url_mask": (url[:18] + "…" + url[-10:]) if url else "",
-            "unit_price": r["unit_price"],
-            "created_at": r["created_at"],
-        })
-    return out
+        return _decrypt_key(enc)
+    except Exception:
+        return ""
 
 
 # ---------- Email-link 2FA (SellAuth-style 6-digit code) ----------

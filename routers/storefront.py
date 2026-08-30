@@ -346,9 +346,7 @@ def reseller_api_page(request: Request):
         has_sellauth_secret=bool(db.get_sellauth_webhook_secret(r["id"])),
         code=request.query_params.get("code", ""),
         resent=request.query_params.get("resent", ""),
-        secret_set=request.query_params.get("secret_set", ""),
-        supplier_saved=request.query_params.get("supplier_saved", ""),
-        supplier_mappings=db.list_supplier_mappings(r["id"])))
+        secret_set=request.query_params.get("secret_set", "")))
 
 
 @router.get("/reseller/api/key", response_class=JSONResponse)
@@ -370,33 +368,6 @@ def reseller_set_sellauth_secret(request: Request, secret: str = Form("")):
         return HTMLResponse("<script>alert('Secret too long (max 200 chars).');window.location='/reseller/api';</script>")
     db.set_sellauth_webhook_secret(r["id"], secret, ip=get_client_ip(request))
     return RedirectResponse(url="/reseller/api?secret_set=1", status_code=303)
-
-
-@router.post("/reseller/api/supplier-mapping")
-def reseller_set_supplier_mapping(
-    request: Request,
-    product_id: str = Form(""),
-    variant_id: str = Form(""),
-    supplier_url: str = Form(""),
-    unit_price: str = Form(""),
-):
-    """Save or clear a supplier mapping for a product. Empty supplier_url clears it.
-    The URL is stored encrypted at rest (it may embed a supplier api_key)."""
-    r = require_reseller(request)
-    product_id = (product_id or "").strip()
-    if not product_id:
-        return HTMLResponse("<script>alert('Product ID is required.');window.location='/reseller/api';</script>")
-    supplier_url = (supplier_url or "").strip()
-    if supplier_url and not (supplier_url.startswith("http://") or supplier_url.startswith("https://")):
-        return HTMLResponse("<script>alert('Supplier URL must start with http:// or https://');window.location='/reseller/api';</script>")
-    price = -1.0
-    if (unit_price or "").strip():
-        try:
-            price = float(unit_price)
-        except ValueError:
-            return HTMLResponse("<script>alert('Unit price must be a number.');window.location='/reseller/api';</script>")
-    db.set_supplier_mapping(r["id"], product_id, supplier_url, unit_price=price, variant_id=(variant_id or "").strip())
-    return RedirectResponse(url="/reseller/api?supplier_saved=1", status_code=303)
 
 
 @router.post("/reseller/api/sync")

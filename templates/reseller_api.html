@@ -76,38 +76,6 @@
       <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Your secret is encrypted at rest and never shown back in full. Set the webhook URL in SellAuth to <code>/api/deliver/dynamic/{{ api_key_mask }}…</code> (your API key). Use it as the delivery URL on each dynamic product.</p>
       {% if secret_set == '1' %}<p class="dim" style="font-size:0.8rem;color:var(--green);">Secret saved.</p>{% endif %}
     </div>
-      <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
-        <div class="page-head">
-          <div><h4>Supplier Products</h4><p class="muted">Map a SellAuth product to an external supplier. When a buyer purchases this product, the panel fetches the key from the supplier URL instead of your own stock — so you can resell products from any site (e.g. exodus.fun-style <code>?api_key=&amp;product_id=&amp;format=simple</code> links). The URL is encrypted at rest.</p></div>
-        </div>
-        <form action="/reseller/api/supplier-mapping" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-          <input name="product_id" type="text" required placeholder="SellAuth product_id (e.g. 860856)" style="flex:1;min-width:160px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
-          <input name="variant_id" type="text" placeholder="variant_id (optional)" style="flex:1;min-width:120px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
-          <input name="supplier_url" type="text" placeholder="https://supplier…/issue?api_key=…&product_id=…&format=simple" style="flex:3;min-width:260px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
-          <input name="unit_price" type="text" placeholder="price (optional)" style="flex:1;min-width:90px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
-          <button class="btn btn-primary btn-sm" type="submit">Save mapping</button>
-        </form>
-        <p class="muted" style="margin-top:0.6rem;font-size:0.8rem;">Leave the URL blank on a saved product to clear its mapping. Leave price blank to use the product's own price.</p>
-        {% if supplier_saved == '1' %}<p class="dim" style="font-size:0.8rem;color:var(--green);">Mapping saved.</p>{% endif %}
-        {% if supplier_mappings %}
-        <div style="margin-top:1rem;">
-          <h5 style="margin-bottom:0.4rem;">Active mappings</h5>
-          <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
-            <thead><tr style="text-align:left;color:var(--muted);"><th>Product</th><th>Variant</th><th>Supplier URL</th><th>Price</th></tr></thead>
-            <tbody>
-            {% for m in supplier_mappings %}
-              <tr style="border-top:1px solid var(--border);">
-                <td style="padding:0.4rem 0.5rem;">{{ m.product_id }}</td>
-                <td style="padding:0.4rem 0.5rem;">{{ m.variant_id or '—' }}</td>
-                <td style="padding:0.4rem 0.5rem;"><code>{{ m.url_mask }}</code></td>
-                <td style="padding:0.4rem 0.5rem;">{{ 'auto' if m.unit_price < 0 else '$%.2f'|format(m.unit_price) }}</td>
-              </tr>
-            {% endfor %}
-            </tbody>
-          </table>
-        </div>
-        {% endif %}
-      </div>
       <div class="page-head">
         <div><h4>Discord Account</h4><p class="muted">Link Discord to receive a 2FA code and delivery alerts by DM.</p></div>
         <a href="/reseller/discord" class="btn btn-ghost btn-sm">Manage →</a>

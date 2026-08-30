@@ -15,7 +15,6 @@ import database as db
 from security import get_client_ip
 from config import settings
 from services.sellauth import client as sellauth
-from services.supplier import fetch_keys as _fetch_from_supplier
 
 router = APIRouter(prefix="/api/deliver", tags=["delivery"])
 
@@ -188,72 +187,6 @@ def _do_deliver(
         if str(v.get("id")) == variant_id:
             vname = v.get("name", "Default")
             break
-
-    # ---- Supplier-backed product? If the reseller mapped this product_id to an
-    # external supplier URL, FETCH the key from the supplier instead of dispensing
-    # from our own SellAuth stock. This is the reseller model: the panel relays the
-    # buyer's order to the upstream supplier and returns its key. Still priced +
-    # balance-checked like any other delivery. ----
-    supplier = db.get_supplier_mapping(reseller["id"], str(product_id), str(variant_id))
-    if supplier:
-        keys = _fetch_from_supplier(supplier["url"], quantity)
-        # Price: supplier mapping price overrides, else fall back to product price.
-        if supplier.get("unit_price") is not None and supplier["unit_price"] >= 0:
-            unit = round(float(supplier["unit_price"]) * (1 - float(reseller["discount_percent"]) / 100), 2)
-        else:
-            unit = db.effective_price(product_id, variant_id, reseller["discount_percent"], _variant_price(product, variant_id))
-        total = round(unit * len(keys), 2)
-        try:
-            db.ensure_funds(reseller["id"], total, shop_id=shop_id)
-        except ValueError as e:
-            elapsed = (time.time() - start) * 1000
-            db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
-            raise HTTPException(status_code=402, detail=str(e))
-        order = db.create_order(
-            reseller_id=reseller["id"],
-            product_id=str(product_id),
-            product_name=product.get("name", "Unknown") + " (supplier)",
-            variant_name=vname,
-            quantity=len(keys),
-            price_per_unit=unit,
-            total_price=total,
-            customer_email=customer_email or "",
-            channel="webhook",
-        )
-        try:
-            db.deduct_both_balances(
-                reseller["id"], total, order["id"],
-                f"Supplier delivery {product.get('name', '?')} x{len(keys)}",
-                shop_id=shop_id,
-            )
-        except ValueError as e:
-            db.update_order_status(order["id"], "failed")
-            elapsed = (time.time() - start) * 1000
-            db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
-            raise HTTPException(status_code=402, detail=str(e))
-        db.update_order_status(order["id"], "delivered", deliverable="\n".join(keys))
-        db.credit_referral_commission(reseller["id"], total)
-        webhook_status = None
-        if reseller.get("webhook_url"):
-            try:
-                with httpx.Client(timeout=10) as c:
-                    r = c.post(reseller["webhook_url"], json={
-                        "event": "delivery", "order_id": order["id"],
-                        "reseller_order_ref": order_id, "product_id": str(product_id),
-                        "variant_id": str(variant_id), "quantity": len(keys),
-                        "keys": keys, "customer_email": customer_email,
-                    })
-                    webhook_status = r.status_code
-            except Exception:
-                webhook_status = 0
-        elapsed = (time.time() - start) * 1000
-        db.record_webhook_usage(reseller["id"], "/api/deliver", 200, elapsed, ip)
-        return {
-            "success": True, "order_id": order["id"], "product_id": str(product_id),
-            "variant_id": str(variant_id), "quantity": len(keys), "unit_price": unit,
-            "total_charged": total, "keys": keys, "webhook_status": webhook_status,
-            "source": "supplier",
-        }
 
     # Price by VARIANT (not product-level) with reseller discount applied
     unit = db.effective_price(product_id, variant_id, reseller["discount_percent"], _variant_price(product, variant_id))
