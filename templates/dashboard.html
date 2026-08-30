@@ -52,67 +52,26 @@
         </table>
     </div>
 
-    <div class="section-header" style="margin-top:2rem;display:flex;align-items:center;gap:1rem;">
+    <div class="section-header" style="margin-top:2rem;">
         <h2>Products (from SellAuth)</h2>
-        <button id="exodus-test" class="btn-mini" style="margin-left:auto;">Test Exodus key</button>
-        <span id="exodus-msg" style="font-size:.85rem;"></span>
     </div>
     <div class="table-wrap">
         <table>
-            <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Source</th><th>Route</th></tr></thead>
+            <thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Type</th></tr></thead>
             <tbody>
-            {% for p in products %}
+            {% for p in products[:5] %}
             <tr>
-                <td>{{ p.name | e }}<br><span class="dim">#{{ p.id }}</span></td>
+                <td>{{ p.name | e }}</td>
                 <td>${{ "%.2f"|format(p.price) }}</td>
                 <td>{% if p.stock == 0 %}<span class="stock-out">0</span>{% elif p.stock < 10 %}<span class="stock-low">{{ p.stock }}</span>{% else %}{{ p.stock }}{% endif %}</td>
-                <td><span class="badge badge-discount" id="src-{{ p.id }}">{{ p.source | e }}</span></td>
-                <td>
-                    <form class="src-form" data-pid="{{ p.id }}" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">
-                        <select name="source" style="padding:.25rem;">
-                            <option value="sellauth" {% if p.source == 'sellauth' %}selected{% endif %}>SellAuth / PhxPanel stock</option>
-                            <option value="exodus" {% if p.source == 'exodus' %}selected{% endif %}>Exodus.fun API</option>
-                        </select>
-                        <input name="exodus_product_id" placeholder="exodus name" value="" style="width:8rem;padding:.25rem;">
-                        <input name="exodus_period" placeholder="1day" value="" style="width:5rem;padding:.25rem;">
-                        <button type="submit" class="btn-mini">Set</button>
-                        <span class="src-msg" style="font-size:.8rem;"></span>
-                    </form>
-                </td>
+                <td><span class="badge badge-discount">{{ p.type | e }}</span></td>
             </tr>
             {% endfor %}
             {% if not products %}
-            <tr><td colspan="5" class="empty">No products loaded — check SellAuth credentials</td></tr>
+            <tr><td colspan="4" class="empty">No products loaded — check SellAuth credentials</td></tr>
             {% endif %}
             </tbody>
         </table>
     </div>
 </div>
-<script>
-document.querySelectorAll('.src-form').forEach(f => {
-  f.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const pid = f.dataset.pid;
-    const fd = new FormData(f);
-    const msg = f.querySelector('.src-msg');
-    msg.textContent = '…';
-    try {
-      const r = await fetch('/admin/product-source', {method:'POST', body: fd});
-      const j = await r.json();
-      msg.textContent = j.ok ? '✓ saved' : '✗ ' + (j.error||'err');
-      if (j.ok) document.getElementById('src-'+pid).textContent = fd.get('source');
-    } catch (err) { msg.textContent = '✗ network'; }
-  });
-});
-const exoTest = document.getElementById('exodus-test');
-if (exoTest) exoTest.addEventListener('click', async () => {
-  const m = document.getElementById('exodus-msg');
-  m.textContent = 'testing…';
-  try {
-    const r = await fetch('/admin/exodus-test', {method:'POST'});
-    const j = await r.json();
-    m.textContent = j.ok ? '✓ key valid' : '✗ ' + (j.error || 'invalid');
-  } catch (e) { m.textContent = '✗ network'; }
-});
-</script>
 {% endblock %}

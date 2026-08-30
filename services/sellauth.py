@@ -1,6 +1,5 @@
 """SellAuth API client — fetch products and stock."""
 import httpx
-import database as db
 from config import settings
 
 
@@ -289,7 +288,6 @@ class SellAuthClient:
                 "currency": p.get("currency", "USD"),
                 "type": p.get("type", "service"),
                 "variants": variants,
-                "source": db.resolve_product_source(str(p.get("id")), p.get("name", ""))["source"],
             })
         return cleaned
 
