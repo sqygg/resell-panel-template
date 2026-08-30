@@ -292,10 +292,10 @@ def _ddl_init() -> str:
         );
 
         CREATE TABLE IF NOT EXISTS product_sources (
-            product_id TEXT PRIMARY KEY,
-            source TEXT NOT NULL DEFAULT 'sellauth',
-            exodus_product_id TEXT NOT NULL DEFAULT '',
-            exodus_period TEXT NOT NULL DEFAULT '',
+            product_id VARCHAR(64) PRIMARY KEY,
+            source VARCHAR(32) NOT NULL DEFAULT 'sellauth',
+            exodus_product_id VARCHAR(128) NOT NULL DEFAULT '',
+            exodus_period VARCHAR(32) NOT NULL DEFAULT '',
             updated_at TEXT NOT NULL DEFAULT ({n})
         );
 
