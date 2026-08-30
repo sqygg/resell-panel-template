@@ -90,6 +90,20 @@ def _plain(status_code: int, text: str):
     return PlainTextResponse(content=text, status_code=status_code)
 
 
+def _deliver_plain(api_key, product_id, variant_id, quantity, customer_email, order_id, request, **kw):
+    """Run a delivery and return the SellAuth-compatible plain-text body
+    (newline-delimited keys), exactly like the /dynamic/ webhook path."""
+    try:
+        result = _do_deliver(api_key, product_id, variant_id, quantity,
+                             customer_email, order_id, request, **kw)
+    except HTTPException as e:
+        return _plain(e.status_code, str(e.detail))
+    except Exception as e:  # noqa: BLE001
+        return _plain(500, f"Delivery error: {e}")
+    keys = result.get("keys", [])
+    return _plain(200, "\n".join(keys))
+
+
 class DeliveryRequest(BaseModel):
     product_id: str | None = None
     variant_id: str | int | None = None
@@ -281,7 +295,7 @@ def deliver_post(api_key: str, body: DeliveryRequest, request: Request):
     pid, vid, qty, email = body.resolved()
     if not pid:
         raise HTTPException(status_code=400, detail="Missing product_id (top-level or item.product_id)")
-    return _do_deliver(api_key, pid, vid, qty, email, body.order_id, request)
+    return _deliver_plain(api_key, pid, vid, qty, email, body.order_id, request)
 
 
 @router.get("/{api_key}")
@@ -297,21 +311,19 @@ def deliver_get(
     # Alias mode: /api/deliver/{alias}  (product/variant come from the alias, not query)
     resolved = db.resolve_alias(api_key)
     if resolved:
-        return _do_deliver(
+        return _deliver_plain(
             None, resolved["product_id"], resolved["variant_id"], quantity,
             customer_email, order_id, request, alias_owner=resolved["reseller_id"],
         )
     # Not an alias: must be a real API key with product_id
     if not product_id:
         raise HTTPException(status_code=401, detail="Unauthorized or missing product_id")
-    return _do_deliver(
-        api_key, product_id, variant_id, quantity, customer_email, order_id, request,
-    )
+    return _deliver_plain(api_key, product_id, variant_id, quantity, customer_email, order_id, request)
 
 
 @router.post("/{api_key}/product/{product_id}")
 def deliver_post_product(api_key: str, product_id: str, body: DeliveryRequest, request: Request):
-    return _do_deliver(
+    return _deliver_plain(
         api_key, product_id, body.variant_id, body.quantity,
         body.customer_email, body.order_id, request,
     )
@@ -327,7 +339,5 @@ def deliver_get_product(
     customer_email: str = Query(""),
     order_id: str | None = Query(None),
 ):
-    return _do_deliver(
-        api_key, product_id, variant_id, quantity, customer_email, order_id, request,
-    )
+    return _deliver_plain(api_key, product_id, variant_id, quantity, customer_email, order_id, request)
 
