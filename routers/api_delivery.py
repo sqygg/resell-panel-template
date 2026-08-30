@@ -231,7 +231,17 @@ def _do_deliver(
             break
     if is_infinite:
         if dynamic_url:
-            secret = db.get_sellauth_webhook_secret(reseller["id"]) or settings.SELLAUTH_WEBHOOK_SECRET or ""
+            # Source-shop products are signed by SellAuth with the SHOP webhook secret
+            # (Storefront > Configure > Miscellaneous), not the per-reseller card (which
+            # is for inbound verification). Use the source shop secret for outbound signing.
+            secret = settings.SELLAUTH_WEBHOOK_SECRET or ""
+            if not secret:
+                elapsed = (time.time() - start) * 1000
+                db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+                raise HTTPException(
+                    status_code=409,
+                    detail="Set SELLAUTH_WEBHOOK_SECRET to your shop's webhook secret "
+                           "(Storefront > Configure > Miscellaneous) to sign dynamic delivery.")
             rdel = sellauth.dynamic_deliver(
                 dynamic_url, product_id, variant_id, quantity,
                 customer_email or "", shop_id=shop_id, webhook_secret=secret)
