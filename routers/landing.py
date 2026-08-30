@@ -5,9 +5,10 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from fastapi.templating import Jinja2Templates
 from routers.storefront import get_store_reseller
 
+from config import settings, DEPLOY_VERSION
 router = APIRouter(tags=["site"])
 templates = Jinja2Templates(directory="templates")
-templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")})
+templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", ""), "deploy_version": DEPLOY_VERSION})
 
 # Public pages crawlers may index; everything else (dashboards, api, admin) is disallowed.
 ROBOTS_TXT = """\

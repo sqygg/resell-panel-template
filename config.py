@@ -7,6 +7,25 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+def get_deploy_version() -> str:
+    """Return the latest 'version X.YY' from git history (the panel's semver build
+    tag). Falls back to RAILWAY_GIT_COMMIT_SHA or 'dev' when git/version unavailable."""
+    import subprocess
+    try:
+        out = subprocess.run(
+            ["git", "log", "--grep=^version ", "--format=%s", "-1"],
+            capture_output=True, text=True, timeout=5,
+        ).stdout.strip()
+        if out.startswith("version "):
+            return out[len("version "):].strip()
+    except Exception:
+        pass
+    return os.getenv("RAILWAY_GIT_COMMIT_SHA", "")[:7] or "dev"
+
+
+DEPLOY_VERSION = get_deploy_version()
+
+
 class Settings:
     # ---------- SellAuth ----------
     SELLAUTH_API_KEY: str = os.getenv("SELLAUTH_API_KEY", "")

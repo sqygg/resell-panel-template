@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from database import init_db
-from config import settings
+from config import settings, DEPLOY_VERSION
 from security import (
     SecurityHeadersMiddleware,
     RateLimitMiddleware,
@@ -100,7 +100,7 @@ async def not_found_handler(request: Request, exc):
         from config import settings
         tpl = Jinja2Templates(directory="templates")
         tpl.context_processors.append(
-            lambda r: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")}
+            lambda r: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", ""), "deploy_version": DEPLOY_VERSION}
         )
         return tpl.TemplateResponse(
             "404.html",

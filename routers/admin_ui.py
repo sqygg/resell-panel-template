@@ -11,9 +11,10 @@ import database as db
 from security import get_client_ip
 from services.sellauth import client as sellauth
 
+from config import settings, DEPLOY_VERSION
 router = APIRouter(prefix="", tags=["ui"])
 templates = Jinja2Templates(directory="templates")
-templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", "")})
+templates.context_processors.append(lambda request: {"deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", ""), "deploy_version": DEPLOY_VERSION})
 
 # In-memory session store (valid sessions)
 _active_sessions: dict[str, str] = {}  # session_id -> admin_token

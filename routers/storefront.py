@@ -9,7 +9,7 @@ from fastapi.templating import Jinja2Templates
 import database as db
 from security import get_client_ip
 from services.sellauth import client as sellauth
-from config import settings
+from config import settings, DEPLOY_VERSION
 import services.mailer as mailer
 from services.crypto_notify import notify_new_application
 
@@ -34,6 +34,7 @@ def _brand_ctx(**extra) -> dict:
         "brand_tagline": "Your reliable partner in gaming solutions.",
         "public_url": settings.PUBLIC_URL,
         "deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", ""),
+        "deploy_version": DEPLOY_VERSION,
     }
     ctx.update(extra)
     return ctx
