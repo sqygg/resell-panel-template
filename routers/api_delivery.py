@@ -15,6 +15,7 @@ import database as db
 from security import get_client_ip
 from config import settings
 from services.sellauth import client as sellauth
+from services.exodus import client as exodus_client
 
 router = APIRouter(prefix="/api/deliver", tags=["delivery"])
 
@@ -146,6 +147,22 @@ def _variant_price(product: dict, variant_id: str) -> float:
     return _safe_float(product.get("price"))
 
 
+def _variant_to_exodus_period(product: dict, variant_id: str) -> str:
+    """Map a SellAuth variant to an exodus `period` token.
+
+    Variant names in your shop are like '1 day', '3', '7', '30'.
+    Exodus periods: 1day, 3days, 7days, 30days. Fallback '1day'.
+    """
+    vname = ""
+    for v in product.get("variants") or []:
+        if str(v.get("id")) == variant_id:
+            vname = str(v.get("name", "")).lower()
+            break
+    digits = "".join(ch for ch in vname if ch.isdigit())
+    mapping = {"1": "1day", "3": "3days", "7": "7days", "30": "30days"}
+    return mapping.get(digits, "1day")
+
+
 def _safe_float(val, default=0.0) -> float:
     """SellAuth sometimes returns price as None/string. Never crash on it."""
     try:
@@ -216,14 +233,30 @@ def _do_deliver(
         db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
         raise HTTPException(status_code=402, detail=str(e))
 
-    # Dispense — real keys always come from SellAuth stock (atomic, single source of
-    # truth). Infinite-stock (-1) developer products (e.g. PhxPanel-backed) have their
-    # real keys generated at SellAuth's own checkout and stored as serials, so they are
-    # dispensed here exactly like finite products. The panel never impersonates SellAuth's
-    # dynamic-delivery webhook (the developer shim expects SellAuth's exact signed envelope,
-    # which only SellAuth can produce). If a product's stock is genuinely 0 the pool returns
-    # [] and we surface "Insufficient stock" — top up stock in SellAuth to fulfil.
-    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+    # Resolve delivery source for this product (explicit tag, else name-based default)
+    routing = db.resolve_product_source(product_id, product.get("name", ""))
+    src = routing["source"]
+
+    if src == "exodus":
+        # Native Exodus.fun API. The exodus product_id/period come from the override,
+        # else derived from the SellAuth product/variant. No prefix is ever added.
+        ex_product = routing["exodus_product_id"] or product.get("name", "")
+        period = routing["exodus_period"] or _variant_to_exodus_period(product, variant_id)
+        try:
+            keys = exodus_client.issue_keys(ex_product, period, quantity)
+        except Exception as e:
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(status_code=409, detail=f"Exodus delivery failed: {e}")
+        if not keys:
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(status_code=409, detail="Exodus returned no keys")
+    else:
+        # SellAuth stock (covers PhxPanel-backed infinite products whose real serials
+        # were generated at SellAuth checkout). The panel never impersonates SellAuth's
+        # dynamic-delivery webhook — that shim expects SellAuth's exact signed envelope.
+        keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
     if keys is None:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)

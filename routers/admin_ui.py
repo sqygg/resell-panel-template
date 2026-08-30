@@ -416,6 +416,22 @@ def admin_pricing_delete(request: Request,
     return JSONResponse({"ok": True})
 
 
+# ---------- Per-product delivery source routing (multi-source) ----------
+@router.post("/admin/product-source")
+def admin_set_product_source(request: Request,
+                             product_id: str = Form(...),
+                             source: str = Form(...),
+                             exodus_product_id: str = Form(""),
+                             exodus_period: str = Form("")):
+    if not check_ui_auth(request):
+        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+    try:
+        db.set_product_source(product_id, source, exodus_product_id or "", exodus_period or "")
+    except ValueError as e:
+        return JSONResponse({"ok": False, "error": str(e)}, status_code=400)
+    return JSONResponse({"ok": True})
+
+
 # ---------- API key retrieval (post-creation) ----------
 # NOTE: removed GET /api/admin/key/{reseller_id} — it returned a reseller's raw
 # decrypted API key on a Bearer password, an unnecessary key-exposure surface.

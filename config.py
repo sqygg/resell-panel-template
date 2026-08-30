@@ -41,6 +41,15 @@ class Settings:
     # stored-key pool. Leave empty if you don't resell infinite-stock products.
     SELLAUTH_RESELLER_TOKEN: str = os.getenv("SELLAUTH_RESELLER_TOKEN", "")
 
+    # ---------- Exodus.fun (second source) ----------
+    # Native reseller API: GET {EXODUS_BASE_URL}/api/reseller/v1/keys/issue
+    #   ?api_key=EXODUS_API_KEY&product_id=<exodus_api_name>&period=<1day|7days>&format=simple
+    # Returns plain newline-delimited keys (no prefix). Used for products whose
+    # source is tagged "exodus" (default: SellAuth product name contains "exodus").
+    EXODUS_API_KEY: str = os.getenv("EXODUS_API_KEY", "")
+    EXODUS_BASE_URL: str = os.getenv("EXODUS_BASE_URL", "https://exodus.fun")
+
+
     # ---------- Admin ----------
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")
     # Session secret for cookie signing

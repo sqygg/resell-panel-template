@@ -291,6 +291,14 @@ def _ddl_init() -> str:
             FOREIGN KEY (reseller_id) {fk}
         );
 
+        CREATE TABLE IF NOT EXISTS product_sources (
+            product_id TEXT PRIMARY KEY,
+            source TEXT NOT NULL DEFAULT 'sellauth',
+            exodus_product_id TEXT NOT NULL DEFAULT '',
+            exodus_period TEXT NOT NULL DEFAULT '',
+            updated_at TEXT NOT NULL DEFAULT ({n})
+        );
+
         CREATE TABLE IF NOT EXISTS reseller_balances (
             reseller_id INTEGER PRIMARY KEY,
             balance REAL NOT NULL DEFAULT 0,
@@ -1565,3 +1573,68 @@ def update_application_status(application_id: int, status: str) -> dict | None:
     finally:
         conn.close()
     return dict(row) if row else None
+
+
+# ---------- Per-product delivery source routing ----------
+# A product's "source" decides how the panel fulfils a delivery:
+#   'sellauth' -> dispense real keys from the source SellAuth shop's stock
+#                (covers PhxPanel-backed infinite products whose real serials were
+#                 generated at SellAuth checkout).
+#   'exodus'   -> call the Exodus.fun reseller API for native keys.
+# Default (no row): 'sellauth' UNLESS the SellAuth product name contains "exodus",
+# in which case 'exodus' (overridable here).
+DEFAULT_EXODUS_KEYWORDS = ("exodus",)
+
+
+def resolve_product_source(product_id: str, product_name: str = "") -> dict:
+    """Return the effective routing for a product.
+
+    Returns {"source": str, "exodus_product_id": str, "exodus_period": str}.
+    Honours an explicit DB override; falls back to name-based default.
+    """
+    conn = get_db()
+    try:
+        row = conn.execute(
+            _ph("SELECT * FROM product_sources WHERE product_id = ?"), (str(product_id),)
+        ).fetchone()
+    finally:
+        conn.close()
+    if row:
+        return {
+            "source": row["source"] or "sellauth",
+            "exodus_product_id": row["exodus_product_id"] or "",
+            "exodus_period": row["exodus_period"] or "",
+        }
+    # Default by name
+    name = (product_name or "").lower()
+    if any(k in name for k in DEFAULT_EXODUS_KEYWORDS):
+        return {"source": "exodus", "exodus_product_id": "", "exodus_period": ""}
+    return {"source": "sellauth", "exodus_product_id": "", "exodus_period": ""}
+
+
+def set_product_source(product_id: str, source: str, exodus_product_id: str = "", exodus_period: str = "") -> None:
+    """Upsert a product's delivery source + exodus params."""
+    if source not in ("sellauth", "exodus"):
+        raise ValueError("source must be 'sellauth' or 'exodus'")
+    now = datetime.now(timezone.utc).isoformat()
+    conn = get_db()
+    try:
+        _exec(conn, _ph(
+            "INSERT INTO product_sources (product_id, source, exodus_product_id, exodus_period, updated_at) "
+            "VALUES (?, ?, ?, ?, ?) "
+            "ON CONFLICT(product_id) DO UPDATE SET source=excluded.source, "
+            "exodus_product_id=excluded.exodus_product_id, exodus_period=excluded.exodus_period, "
+            "updated_at=excluded.updated_at"
+        ), (str(product_id), source, exodus_product_id or "", exodus_period or "", now))
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def list_product_sources() -> list[dict]:
+    conn = get_db()
+    try:
+        rows = conn.execute("SELECT * FROM product_sources ORDER BY product_id").fetchall()
+    finally:
+        conn.close()
+    return [dict(r) for r in rows]
