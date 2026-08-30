@@ -34,6 +34,12 @@ class Settings:
     # Configure > Miscellaneous). If set, POST /api/deliver/dynamic verifies the
     # X-Signature header; if empty, signature is NOT verified (dev/test only).
     SELLAUTH_WEBHOOK_SECRET: str = os.getenv("SELLAUTH_WEBHOOK_SECRET", "")
+    # SellAuth RESLLER token for Reseller Dynamic Delivery. This is the token from
+    # your own SellAuth shop's `/customer/reseller` panel (NOT the API key). It lets
+    # the panel pull REAL deliverables from a source shop for infinite-stock (generator)
+    # products — SellAuth only mints those keys via this endpoint, never through the
+    # stored-key pool. Leave empty if you don't resell infinite-stock products.
+    SELLAUTH_RESELLER_TOKEN: str = os.getenv("SELLAUTH_RESELLER_TOKEN", "")
 
     # ---------- Admin ----------
     ADMIN_PASSWORD: str = os.getenv("ADMIN_PASSWORD", "")

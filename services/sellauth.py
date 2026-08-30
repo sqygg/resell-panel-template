@@ -96,6 +96,36 @@ class SellAuthClient:
         )
         return result is not None
 
+    def reseller_deliver(self, token: str, product_id: str, variant_id: str | int,
+                          quantity: int = 1, max_unit_price: float | None = None) -> dict:
+        """Pull REAL deliverables for an infinite-stock (generator) product via
+        SellAuth Reseller Dynamic Delivery.
+
+        Generator products keep 0 stored keys, so the normal dispense path can't
+        fulfil them. SellAuth only mints real keys through this endpoint, which
+        charges the token owner's reseller balance and returns the actual
+        deliverables. Returns {"ok": True, "keys": [...]} or {"ok": False, ...}.
+        """
+        if not token:
+            return {"ok": False, "status": 0, "error": "No SellAuth reseller token configured"}
+        params = {"product_id": product_id, "variant_id": variant_id, "quantity": quantity}
+        if max_unit_price is not None:
+            params["max_unit_price"] = max_unit_price
+        url = f"{self.base}/reseller/dynamic/{token}"
+        try:
+            with httpx.Client(timeout=20) as client:
+                resp = client.get(url, headers=self.headers, params=params)
+                # Successful dynamic delivery returns plain-text deliverables, one per line.
+                if resp.status_code == 200:
+                    text = resp.text.strip()
+                    keys = [k for k in text.splitlines() if k.strip()]
+                    return {"ok": True, "keys": keys}
+                return {"ok": False, "status": resp.status_code,
+                        "error": resp.text[:400]}
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": str(e)[:400]}
+
+
     def dispense_one(self, product_id: str, variant_id: str | int) -> str | None:
         """
         Atomically take ONE key from SellAuth stock and return it.

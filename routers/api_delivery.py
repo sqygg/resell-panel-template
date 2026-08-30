@@ -219,15 +219,29 @@ def _do_deliver(
     # Dispense — two paths:
     #  • Finite stock: pull real keys from SellAuth stock (atomic).
     #  • Infinite stock (-1, SellAuth generator product): SellAuth holds 0 stored
-    #    keys, so the API can't dispense. As the source shop, the panel generates a
-    #    unique deliverable token locally instead.
+    #    keys and only mints them via Reseller Dynamic Delivery. Pull the REAL
+    #    deliverables through that endpoint using the reseller's SellAuth token.
     is_infinite = False
     for v in product.get("variants") or []:
         if str(v.get("id")) == variant_id:
             is_infinite = (int(v.get("stock", 0) or 0) == -1)
             break
     if is_infinite:
-        keys = db.generate_deliverable(product_id, variant_id, quantity, customer_email or "")
+        token = db.get_sellauth_reseller_token(reseller["id"]) or settings.SELLAUTH_RESELLER_TOKEN
+        if not token:
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(
+                status_code=409,
+                detail="Infinite-stock product needs a SellAuth reseller token (set SELLAUTH_RESELLER_TOKEN or your reseller token in Settings).")
+        rdel = sellauth.reseller_deliver(token, product_id, variant_id, quantity)
+        if not rdel.get("ok"):
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Source delivery failed: HTTP {rdel.get('status')} {rdel.get('error', '')}".strip())
+        keys = rdel.get("keys") or []
     else:
         keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
     if keys is None:

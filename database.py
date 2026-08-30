@@ -126,35 +126,6 @@ def _generate_raw_key() -> str:
     return "rs_" + secrets.token_urlsafe(32)
 
 
-def generate_deliverable(product_id: str, variant_id: str, quantity: int = 1,
-                          customer_email: str = "") -> list[str]:
-    """Generate deliverables for infinite-stock (generator) products.
-
-    SellAuth generator products keep 0 stored keys, so the API cannot dispense
-    them. As the source shop, the panel mints a unique redeemable token per unit.
-    Tokens are recorded in `generated_deliverables` so refunds/audits can trace them.
-    """
-    out = []
-    for _ in range(quantity):
-        token = "ASTRO-" + secrets.token_hex(12).upper()
-        out.append(token)
-    try:
-        conn = get_db()
-        try:
-            conn.execute(_ph(
-                """INSERT INTO generated_deliverables
-                   (product_id, variant_id, customer_email, tokens, created_at)
-                   VALUES (?,?,?,?, datetime('now'))"""),
-                (str(product_id), str(variant_id), customer_email or "", "\n".join(out)))
-            conn.commit()
-        finally:
-            conn.close()
-    except Exception:
-        # Never block delivery on audit-log failure.
-        pass
-    return out
-
-
 # ---------- Input validation ----------
 
 def _validate_name(name: str) -> str:
@@ -237,7 +208,8 @@ def _ddl_init() -> str:
             email_2fa_exp TEXT NOT NULL DEFAULT '',
             email_2fa_attempts INTEGER NOT NULL DEFAULT 0,
             email_2fa_sent_at TEXT NOT NULL DEFAULT '',
-            sellauth_webhook_secret TEXT NOT NULL DEFAULT ''
+            sellauth_webhook_secret TEXT NOT NULL DEFAULT '',
+            sellauth_reseller_token_enc TEXT NOT NULL DEFAULT ''
         );
 
         CREATE TABLE IF NOT EXISTS referrals (
@@ -317,15 +289,6 @@ def _ddl_init() -> str:
             channel TEXT NOT NULL DEFAULT 'manual',
             created_at TEXT NOT NULL DEFAULT ({n}),
             FOREIGN KEY (reseller_id) {fk}
-        );
-
-        CREATE TABLE IF NOT EXISTS generated_deliverables (
-            id {pk},
-            product_id TEXT NOT NULL,
-            variant_id TEXT NOT NULL DEFAULT '',
-            customer_email TEXT NOT NULL DEFAULT '',
-            tokens TEXT NOT NULL,
-            created_at TEXT NOT NULL DEFAULT ({n})
         );
 
         CREATE TABLE IF NOT EXISTS reseller_balances (
@@ -479,6 +442,7 @@ def _migrate():
         add_col("email_2fa_attempts", "INTEGER NOT NULL DEFAULT 0")
         add_col("email_2fa_sent_at", "TEXT NOT NULL DEFAULT ''")
         add_col("sellauth_webhook_secret", "TEXT NOT NULL DEFAULT ''")
+        add_col("sellauth_reseller_token_enc", "TEXT NOT NULL DEFAULT ''")
 
         # Backfill api_key_hash from decrypted keys (only if missing)
         if "api_key_hash" in existing:
@@ -905,7 +869,36 @@ def get_sellauth_webhook_secret(reseller_id: int) -> str:
         return ""
 
 
-# ---------- Email-link 2FA (SellAuth-style 6-digit code) ----------
+def set_sellauth_reseller_token(reseller_id: int, token: str, ip: str = "") -> None:
+    """Store the reseller's SellAuth RESLLER token (for Reseller Dynamic Delivery
+    of infinite-stock / generator products), encrypted at rest. Empty clears it."""
+    token = (token or "").strip()
+    enc = _encrypt_key(token) if token else ""
+    now = _now_iso()
+    conn = get_db()
+    try:
+        _exec(conn, "UPDATE resellers SET sellauth_reseller_token_enc = ?, updated_at = ? WHERE id = ?",
+              (enc, now, reseller_id))
+        conn.commit()
+    finally:
+        conn.close()
+    _audit("reseller_sellauth_token_set", reseller_id, f"set={bool(token)}", ip)
+
+
+def get_sellauth_reseller_token(reseller_id: int) -> str:
+    """Decrypt the reseller's stored SellAuth reseller token, or '' if none."""
+    conn = get_db()
+    try:
+        row = conn.execute(_ph("SELECT sellauth_reseller_token_enc FROM resellers WHERE id = ?"), (reseller_id,)).fetchone()
+    finally:
+        conn.close()
+    enc = (row["sellauth_reseller_token_enc"] or "") if row else ""
+    if not enc:
+        return ""
+    try:
+        return _decrypt_key(enc)
+    except Exception:
+        return ""
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()

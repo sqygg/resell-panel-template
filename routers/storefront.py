@@ -344,6 +344,7 @@ def reseller_api_page(request: Request):
         balance=balance_info["balance"], balance_source=balance_info["source"],
         sellauth_email=balance_info["email"],
         has_sellauth_secret=bool(db.get_sellauth_webhook_secret(r["id"])),
+        has_sellauth_token=bool(db.get_sellauth_reseller_token(r["id"])),
         code=request.query_params.get("code", ""),
         resent=request.query_params.get("resent", ""),
         secret_set=request.query_params.get("secret_set", "")))
@@ -356,6 +357,19 @@ def reseller_api_key(request: Request):
     r = require_reseller(request)
     key = db.reveal_api_key(r["id"]) or ""
     return JSONResponse({"api_key": key})
+
+
+@router.post("/reseller/api/sellauth-token")
+def reseller_set_sellauth_token(request: Request, token: str = Form("")):
+    """Save or clear the reseller's SellAuth RESLLER token (Reseller Dynamic
+    Delivery). Used to pull REAL deliverables for infinite-stock generator products.
+    Stored encrypted at rest."""
+    r = require_reseller(request)
+    token = (token or "").strip()
+    if token and len(token) > 200:
+        return HTMLResponse("<script>alert('Token too long (max 200 chars).');window.location='/reseller/api';</script>")
+    db.set_sellauth_reseller_token(r["id"], token, ip=get_client_ip(request))
+    return RedirectResponse(url="/reseller/api?token_set=1", status_code=303)
 
 
 @router.post("/reseller/api/sellauth-secret")
