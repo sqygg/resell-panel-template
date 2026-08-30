@@ -231,6 +231,12 @@
       } catch (e) { return false; }
     }
     function flashCopied(btn) {
+      if (btn.querySelector('.tick')) {
+        // Tick-aware buttons: animate the checkmark via CSS, keep label span intact.
+        btn.classList.add('copied');
+        setTimeout(function () { btn.classList.remove('copied'); }, 1400);
+        return;
+      }
       btn.classList.add('copied');
       var prev = btn.dataset.label || btn.textContent;
       btn.dataset.label = prev;
