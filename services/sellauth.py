@@ -96,6 +96,41 @@ class SellAuthClient:
         )
         return result is not None
 
+    def dynamic_deliver(self, dynamic_url: str, product_id: str, variant_id: str | int,
+                         quantity: int = 1, customer_email: str = "", shop_id: str | None = None) -> dict:
+        """Fulfil an infinite-stock (dynamic) product by calling the developer
+        webhook URL set on the SellAuth variant — exactly what SellAuth itself does
+        at checkout. No reseller program or balance needed; the webhook is the real
+        source of the deliverable. Returns {"ok": True, "keys": [...]} or {"ok": False}.
+
+        The request body mirrors SellAuth's INVOICE.ITEM.DELIVER-DYNAMIC payload so
+        developer webhooks behave identically to a real purchase.
+        """
+        if not dynamic_url:
+            return {"ok": False, "status": 0, "error": "No dynamic_url on variant"}
+        import time as _t
+        payload = {
+            "event": "INVOICE.ITEM.DELIVER-DYNAMIC",
+            "email": customer_email or "",
+            "shop_id": int(shop_id) if shop_id else int(self.shop_id or 0),
+            "item": {
+                "product_id": int(product_id) if str(product_id).isdigit() else product_id,
+                "variant_id": int(variant_id) if str(variant_id).isdigit() else variant_id,
+                "quantity": quantity,
+            },
+        }
+        try:
+            with httpx.Client(timeout=20) as client:
+                resp = client.post(dynamic_url, json=payload)
+                if resp.status_code == 200:
+                    text = resp.text.strip()
+                    keys = [k for k in text.splitlines() if k.strip()]
+                    return {"ok": True, "keys": keys}
+                return {"ok": False, "status": resp.status_code, "error": resp.text[:400]}
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": str(e)[:400]}
+
+
     def reseller_deliver(self, token: str, product_id: str, variant_id: str | int,
                           quantity: int = 1, max_unit_price: float | None = None) -> dict:
         """Pull REAL deliverables for an infinite-stock (generator) product via

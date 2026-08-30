@@ -80,7 +80,7 @@
 
     <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
       <div class="page-head">
-        <div><h4>SellAuth Reseller Token</h4><p class="muted">Paste your SellAuth <strong>reseller token</strong> (your own shop's <code>/customer/reseller</code> panel) so infinite-stock products deliver <strong>real</strong> keys via Reseller Dynamic Delivery. Without it, generator products can't fulfil. Leave blank to use the store's global token.</p></div>
+        <div><h4>SellAuth Reseller Token <span class="dim" style="font-weight:400;">(optional)</span></h4><p class="muted">Infinite-stock products are fulfilled automatically by calling the developer webhook URL set on the variant in your SellAuth shop — no reseller program or paid plan needed. This token is only a fallback for source-shop Reseller Dynamic Delivery. Leave blank if your products use a dynamic (webhook) deliverable.</p></div>
         {% if has_sellauth_token %}<span class="badge badge-active">● Set</span>{% else %}<span class="badge badge-inactive">○ Not set</span>{% endif %}
       </div>
       <form action="/reseller/api/sellauth-token" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
