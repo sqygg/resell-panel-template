@@ -231,20 +231,19 @@ def reseller_catalog(request: Request):
     aliases = db.list_product_aliases(r["id"])
     alias_map = {(a["product_id"], a["variant_id"]): a["alias"] for a in aliases}
     df = 1 - (r["discount"] / 100)
+    api_key = db.reveal_api_key(r["id"]) or ""
     base = settings.PUBLIC_URL.rstrip("/") if settings.PUBLIC_URL else str(request.base_url).rstrip("/")
     for p in products:
         p["reseller_price"] = db.effective_price(str(p["id"]), "", r["discount"], p["price"])
         for v in p.get("variants", []):
             v["reseller_price"] = db.effective_price(str(p["id"]), str(v.get("variant_id", "")), r["discount"], v["price"])
-            key = (str(p["id"]), str(v.get("variant_id", "")))
-            alias = alias_map.get(key)
-            if alias:
-                v["delivery_url"] = f"{base}/api/deliver/{alias}"
-            elif r.get("api_key_prefix"):
-                # Delivery URL embeds the API key (shareable link for customers).
-                v["delivery_url"] = f"{base}/api/deliver/{db.reveal_api_key(r['id'])}/product/{p['id']}?variant_id={v['variant_id']}"
-            else:
-                v["delivery_url"] = ""
+            # Always build the per-product delivery URL from the API key — no prefix
+            # required, no legacy alias. This is the format resellers paste into their
+            # own store (one Dynamic Delivery URL per product/variant).
+            v["delivery_url"] = (
+                f"{base}/api/deliver/{api_key}/product/{p['id']}?variant_id={v['variant_id']}"
+                if api_key else ""
+            )
     return templates.TemplateResponse("reseller_catalog.html", _brand_ctx(
         request=request, reseller=r, products=products, balance=balance_info["balance"],
         balance_source=balance_info["source"], sellauth_email=balance_info["email"]))
