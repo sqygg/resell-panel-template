@@ -38,7 +38,12 @@
               <td>{% if v.stock == -1 %}∞{% else %}{{ v.stock }}{% endif %}</td>
               <td style="max-width:300px;">
                 <code style="font-size:0.7rem;word-break:break-all;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
-                <button type="button" class="btn btn-primary btn-sm copy-btn" style="margin-top:0.45rem;position:relative;" data-copy-target="du-{{ p.id }}-{{ v.variant_id }}"><span class="lbl">Generate &amp; Copy</span><span class="tick">✓</span></button>
+                <div style="display:flex;gap:0.4rem;margin-top:0.45rem;flex-wrap:wrap;">
+                  <button type="button" class="btn btn-primary btn-sm copy-btn" style="position:relative;" data-copy-target="du-{{ p.id }}-{{ v.variant_id }}"><span class="lbl">Copy</span><span class="tick">✓</span></button>
+                  <form method="post" action="/reseller/api/regen" style="margin:0;" onsubmit="return confirm('Revoke this link? Regenerates your API key — ALL existing delivery URLs stop working and must be re-copied.');">
+                    <button type="submit" class="btn btn-danger btn-sm">Revoke</button>
+                  </form>
+                </div>
               </td>
             </tr>
           {% endfor %}
