@@ -216,12 +216,44 @@ def _do_deliver(
         db.record_webhook_usage(reseller["id"], "/api/deliver", 402, elapsed, ip)
         raise HTTPException(status_code=402, detail=str(e))
 
-    # Dispense — real keys always come from SellAuth stock (atomic, single source of
-    # truth). Infinite-stock (-1) developer products (e.g. PhxPanel-backed) have their
-    # real keys generated at SellAuth's own checkout and stored as serials, so they are
-    # dispensed here exactly like finite products. If a product's stock is genuinely 0 the
-    # pool returns [] and we surface "Insufficient stock" — top up stock in SellAuth.
-    keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+    # Detect generator/infinite (-1) product: its real keys are NOT in stock — they are
+    # generated on demand by SellAuth when an invoice is created on the SOURCE shop. The
+    # panel mirrors the reseller's customer order by calling the SellAuth Reseller API
+    # (POST /v1/reseller/invoices) with the reseller's token. SellAuth fires the variant's
+    # dynamic_url natively and returns the real key in `delivered`. This is the correct
+    # mirror — the panel never fakes the webhook, no prefix is added.
+    vstock = -2
+    for v in product.get("variants") or []:
+        if str(v.get("id")) == variant_id:
+            try:
+                vstock = int(v.get("stock", 0) or 0)
+            except Exception:
+                vstock = -2
+            break
+
+    if vstock == -1:
+        # Generator product — place a reseller invoice on the source shop.
+        token = db.get_sellauth_reseller_token(reseller["id"]) or settings.SELLAUTH_RESELLER_TOKEN
+        if not token:
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(
+                status_code=409,
+                detail="Generator product needs a SellAuth reseller token (set it on the "
+                       "reseller, or SELLAUTH_RESELLER_TOKEN) to create the source invoice.")
+        idem = f"{reseller['id']}-{product_id}-{variant_id}-{order_id or ''}-{quantity}"
+        rinv = sellauth.create_reseller_invoice(token, product_id, variant_id, quantity, idempotency_key=idem)
+        if not rinv.get("ok"):
+            elapsed = (time.time() - start) * 1000
+            db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)
+            raise HTTPException(
+                status_code=409,
+                detail=f"Source delivery failed: HTTP {rinv.get('status')} {rinv.get('error', '')}".strip())
+        keys = rinv.get("keys") or []
+    else:
+        # Finite stock — dispense real keys from SellAuth stock (atomic).
+        keys = sellauth.dispense_bulk(product_id, variant_id, quantity, shop_id=shop_id)
+
     if keys is None:
         elapsed = (time.time() - start) * 1000
         db.record_webhook_usage(reseller["id"], "/api/deliver", 409, elapsed, ip)

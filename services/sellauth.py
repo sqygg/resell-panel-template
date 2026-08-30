@@ -231,6 +231,50 @@ class SellAuthClient:
             return None
         return take
 
+    def create_reseller_invoice(self, reseller_token: str, product_id: str | int,
+                                variant_id: str | int, quantity: int = 1,
+                                idempotency_key: str | None = None) -> dict:
+        """Place an order on the SOURCE shop via the SellAuth Reseller API.
+
+        POST https://api.sellauth.com/v1/reseller/invoices
+          Authorization: Bearer <reseller_token>
+          {"items":[{"product_id":N,"variant_id":M,"quantity":Q}]}
+
+        SellAuth charges the reseller balance and — for dynamic/generator products —
+        fires the variant's `dynamic_url` NATIVELY, returning the real generated key in
+        the `delivered` array. This is the correct mirror: the panel never fakes the
+        webhook; SellAuth does the generation. Returns:
+          {"ok": True, "keys": [...], "invoice_id": int, "status": str}
+          {"ok": False, "status": int, "error": str}
+        """
+        if not reseller_token:
+            return {"ok": False, "status": 0, "error": "No SellAuth reseller token configured"}
+        url = f"{self.base}/reseller/invoices"
+        payload = {"items": [{"product_id": int(product_id), "variant_id": int(variant_id), "quantity": quantity}]}
+        headers = {"Authorization": f"Bearer {reseller_token}", "Content-Type": "application/json"}
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+        try:
+            with httpx.Client(timeout=30) as client:
+                resp = client.post(url, json=payload, headers=headers)
+        except Exception as e:
+            return {"ok": False, "status": 0, "error": f"request failed: {e}"}
+        try:
+            data = resp.json()
+        except Exception:
+            return {"ok": False, "status": resp.status_code, "error": resp.text[:300]}
+        if resp.status_code not in (200, 201) or not data.get("items"):
+            return {"ok": False, "status": resp.status_code,
+                    "error": data.get("message") or resp.text[:300]}
+        # Collect delivered keys across all items
+        keys: list[str] = []
+        for it in data.get("items", []):
+            for k in it.get("delivered", []) or []:
+                if k:
+                    keys.append(k)
+        return {"ok": True, "keys": keys,
+                "invoice_id": data.get("id"), "status": data.get("status", "")}
+
     # ---------- Stock sync ----------
 
     def sync_stock_snapshot(self) -> dict:
