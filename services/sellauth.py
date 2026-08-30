@@ -109,9 +109,9 @@ class SellAuthClient:
         if not dynamic_url:
             return {"ok": False, "status": 0, "error": "No dynamic_url on variant"}
         import time as _t, hmac as _hmac, hashlib as _hl, secrets as _sec, json as _json
-        sid = int(shop_id) if shop_id else int(self.shop_id or 0)
-        pid = int(product_id) if str(product_id).isdigit() else product_id
-        vid = int(variant_id) if str(variant_id).isdigit() else variant_id
+        sid = str(shop_id) if shop_id else str(self.shop_id or 0)
+        pid = str(product_id)
+        vid = str(variant_id)
         now_iso = _t.strftime("%Y-%m-%dT%H:%M:%SZ", _t.gmtime())
         invoice_id = int(_t.time())
         unique_id = f"{_sec.token_hex(6)}-{invoice_id}"
@@ -140,12 +140,19 @@ class SellAuthClient:
         try:
             with httpx.Client(timeout=20) as client:
                 resp = client.post(dynamic_url, content=raw, headers=headers)
+                # Debug (Railway captures stdout): log exact request + response so we
+                # can see precisely what the developer webhook rejects. No secret leaked
+                # (X-Signature is a hash, body carries no secret).
+                print(f"[dynamic_deliver] URL={dynamic_url} status={resp.status_code}")
+                print(f"[dynamic_deliver] REQ body={raw.decode()}")
+                print(f"[dynamic_deliver] RESP={resp.text[:500]}")
                 if resp.status_code == 200:
                     text = resp.text.strip()
                     keys = [k for k in text.splitlines() if k.strip()]
                     return {"ok": True, "keys": keys}
                 return {"ok": False, "status": resp.status_code, "error": resp.text[:400]}
         except Exception as e:
+            print(f"[dynamic_deliver] EXCEPTION={e}")
             return {"ok": False, "status": 0, "error": str(e)[:400]}
 
 
