@@ -432,6 +432,14 @@ def admin_set_product_source(request: Request,
     return JSONResponse({"ok": True})
 
 
+@router.post("/admin/exodus-test")
+def admin_exodus_test(request: Request):
+    if not check_ui_auth(request):
+        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=401)
+    from services.exodus import client as exodus_client
+    return JSONResponse(exodus_client.validate_key())
+
+
 # ---------- API key retrieval (post-creation) ----------
 # NOTE: removed GET /api/admin/key/{reseller_id} — it returned a reseller's raw
 # decrypted API key on a Bearer password, an unnecessary key-exposure surface.

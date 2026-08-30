@@ -12,6 +12,24 @@ from config import settings
 
 
 class ExodusClient:
+    def validate_key(self) -> dict:
+        """Call GET {base}/auth/validate?api_key=... Returns {'ok': bool, 'error': str}."""
+        if not settings.EXODUS_API_KEY:
+            return {"ok": False, "error": "EXODUS_API_KEY is not set"}
+        url = f"{settings.EXODUS_BASE_URL.rstrip('/')}/api/reseller/v1/auth/validate"
+        try:
+            with httpx.Client(timeout=15) as client:
+                resp = client.get(url, params={"api_key": settings.EXODUS_API_KEY})
+        except Exception as e:
+            return {"ok": False, "error": f"request failed: {e}"}
+        try:
+            data = resp.json()
+        except Exception:
+            return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+        if data.get("success"):
+            return {"ok": True, "error": ""}
+        return {"ok": False, "error": data.get("error") or f"HTTP {resp.status_code}"}
+
     def issue_keys(self, product_id: str, period: str, quantity: int = 1) -> list[str]:
         """Fetch `quantity` keys for an exodus product/period.
 

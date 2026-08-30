@@ -52,8 +52,10 @@
         </table>
     </div>
 
-    <div class="section-header" style="margin-top:2rem;">
+    <div class="section-header" style="margin-top:2rem;display:flex;align-items:center;gap:1rem;">
         <h2>Products (from SellAuth)</h2>
+        <button id="exodus-test" class="btn-mini" style="margin-left:auto;">Test Exodus key</button>
+        <span id="exodus-msg" style="font-size:.85rem;"></span>
     </div>
     <div class="table-wrap">
         <table>
@@ -101,6 +103,16 @@ document.querySelectorAll('.src-form').forEach(f => {
       if (j.ok) document.getElementById('src-'+pid).textContent = fd.get('source');
     } catch (err) { msg.textContent = '✗ network'; }
   });
+});
+const exoTest = document.getElementById('exodus-test');
+if (exoTest) exoTest.addEventListener('click', async () => {
+  const m = document.getElementById('exodus-msg');
+  m.textContent = 'testing…';
+  try {
+    const r = await fetch('/admin/exodus-test', {method:'POST'});
+    const j = await r.json();
+    m.textContent = j.ok ? '✓ key valid' : '✗ ' + (j.error || 'invalid');
+  } catch (e) { m.textContent = '✗ network'; }
 });
 </script>
 {% endblock %}
