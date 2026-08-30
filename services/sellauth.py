@@ -97,18 +97,17 @@ class SellAuthClient:
         return result is not None
 
     def dynamic_deliver(self, dynamic_url: str, product_id: str, variant_id: str | int,
-                         quantity: int = 1, customer_email: str = "", shop_id: str | None = None) -> dict:
+                         quantity: int = 1, customer_email: str = "", shop_id: str | None = None,
+                         webhook_secret: str = "") -> dict:
         """Fulfil an infinite-stock (dynamic) product by calling the developer
         webhook URL set on the SellAuth variant — exactly what SellAuth itself does
-        at checkout. No reseller program or balance needed; the webhook is the real
-        source of the deliverable. Returns {"ok": True, "keys": [...]} or {"ok": False}.
-
-        The request body mirrors SellAuth's INVOICE.ITEM.DELIVER-DYNAMIC payload so
-        developer webhooks behave identically to a real purchase.
+        at checkout. No reseller program or balance needed. The request is signed
+        with HMAC-SHA256 (raw JSON body, webhook secret) + X-Timestamp +
+        Idempotency-Key, mirroring SellAuth's signature scheme so the developer
+        endpoint accepts it as a genuine SellAuth dynamic-delivery call.
         """
         if not dynamic_url:
             return {"ok": False, "status": 0, "error": "No dynamic_url on variant"}
-        import time as _t
         payload = {
             "event": "INVOICE.ITEM.DELIVER-DYNAMIC",
             "email": customer_email or "",
@@ -119,9 +118,17 @@ class SellAuthClient:
                 "quantity": quantity,
             },
         }
+        import time as _t, hmac as _hmac, hashlib as _hl, secrets as _sec, json as _json
+        raw = _json.dumps(payload, separators=(",", ":")).encode()
+        headers = {"Content-Type": "application/json"}
+        if webhook_secret:
+            sig = _hmac.new(webhook_secret.encode(), raw, _hl.sha256).hexdigest()
+            headers["X-Signature"] = sig
+            headers["X-Timestamp"] = str(int(_t.time()))
+            headers["Idempotency-Key"] = _sec.token_hex(32)
         try:
             with httpx.Client(timeout=20) as client:
-                resp = client.post(dynamic_url, json=payload)
+                resp = client.post(dynamic_url, content=raw, headers=headers)
                 if resp.status_code == 200:
                     text = resp.text.strip()
                     keys = [k for k in text.splitlines() if k.strip()]
