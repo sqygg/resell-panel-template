@@ -8,7 +8,10 @@
         <h1>Product Catalog</h1>
         <p class="muted">Your discounted prices. Generate a delivery link per product to share or use.</p>
       </div>
-      <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
+      <div style="display:flex;gap:0.5rem;align-items:center;">
+        <button type="button" id="blurToggle" class="btn btn-ghost btn-sm">👁 Show URLs</button>
+        <a href="/reseller" class="btn btn-ghost btn-sm">← Dashboard</a>
+      </div>
     </div>
 
     <div style="display:flex;gap:0.6rem;margin-bottom:1.5rem;flex-wrap:wrap;">
@@ -37,7 +40,7 @@
               <td><strong>${{ "%.2f"|format(v.reseller_price) }}</strong></td>
               <td>{% if v.stock == -1 %}∞{% else %}{{ v.stock }}{% endif %}</td>
               <td style="max-width:300px;">
-                <code style="font-size:0.7rem;word-break:break-all;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
+                <code class="secret-url" style="font-size:0.7rem;word-break:break-all;" id="du-{{ p.id }}-{{ v.variant_id }}">{{ v.delivery_url }}</code>
                 <div style="display:flex;gap:0.4rem;margin-top:0.45rem;flex-wrap:wrap;">
                   <button type="button" class="btn btn-primary btn-sm copy-btn" style="position:relative;" data-copy-target="du-{{ p.id }}-{{ v.variant_id }}"><span class="lbl">Copy</span><span class="tick">✓</span></button>
                   <form method="post" action="/reseller/api/regen" style="margin:0;" onsubmit="return confirm('Revoke this link? Regenerates your API key — ALL existing delivery URLs stop working and must be re-copied.');">
@@ -55,4 +58,26 @@
     {% if not products %}<p class="muted">No products configured. Set SELLAUTH_API_KEY + SELLAUTH_SHOP_ID in Railway.</p>{% endif %}
   </div>
 </div>
+<script>
+(function () {
+  var btn = document.getElementById('blurToggle');
+  if (!btn) return;
+  var KEY = 'astro_urls_visible';
+  function apply(state) {
+    document.body.classList.toggle('urls-visible', state);
+    btn.textContent = state ? '🙈 Hide URLs' : '👁 Show URLs';
+  }
+  var saved = localStorage.getItem(KEY) === '1';
+  apply(saved);
+  btn.addEventListener('click', function () {
+    var next = !document.body.classList.contains('urls-visible');
+    localStorage.setItem(KEY, next ? '1' : '0');
+    apply(next);
+  });
+  // Click a blurred URL to reveal it temporarily without toggling global state.
+  document.querySelectorAll('.secret-url').forEach(function (el) {
+    el.addEventListener('click', function () { el.style.filter = 'none'; });
+  });
+})();
+</script>
 {% endblock %}
