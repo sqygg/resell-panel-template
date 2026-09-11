@@ -45,6 +45,17 @@ def landing(request: Request):
     })
 
 
+@router.get("/galaxy", response_class=HTMLResponse)
+def galaxy(request: Request):
+    """Galaxy theme landing — Apple minimal + galaxy dark (new theme, void untouched)."""
+    from config import settings
+    return templates.TemplateResponse("galaxy_landing.html", {
+        "request": request,
+        "brand_name": settings.BRAND_NAME,
+        "brand_tagline": settings.BRAND_TAGLINE,
+    })
+
+
 @router.get("/api-docs", response_class=HTMLResponse)
 def api_docs(request: Request):
     """Reseller API documentation."""

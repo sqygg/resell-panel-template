@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Astro — Galaxy{% endblock %}</title>
+  <link rel="stylesheet" href="/static/galaxy.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="gx-progress" id="gxProgress"></div>
+
+  <!-- Apple-style translucent nav -->
+  <nav class="gx-nav">
+    <div class="gx-nav-inner">
+      <a href="/galaxy" class="gx-brand">
+        <img src="/static/logo.png" alt="Astro">
+        <span>ASTRO</span>
+      </a>
+      <div class="gx-nav-links" id="gxNavLinks">
+        <a href="/">Void theme</a>
+        <a href="/faq">FAQ</a>
+        <a href="/api-docs">API Docs</a>
+        <a href="/apply">Apply to Resell</a>
+        <a href="/auth" class="cta-pill">Reseller Dashboard</a>
+      </div>
+      <button class="gx-mobile-toggle" id="gxMobileToggle" aria-label="Menu"><span></span><span></span><span></span></button>
+    </div>
+  </nav>
+
+  {% block content %}{% endblock %}
+
+  <footer class="gx-footer">
+    <p>ASTRO — Your reliable partner in gaming solutions.</p>
+    <p>© 2026 Astro. All rights reserved.{% if deploy_version %} <span style="opacity:.6">· build {{ deploy_version }}</span>{% endif %} · <a href="/privacy">Privacy</a> · <a href="/faq">FAQ</a> · <a href="/" style="margin-left:.5rem">Switch to Void theme</a></p>
+  </footer>
+
+  <script>
+    // scroll progress
+    (function(){
+      var bar=document.getElementById('gxProgress');
+      if(!bar) return;
+      function onScroll(){
+        var el=document.documentElement;
+        var max=el.scrollHeight - el.clientHeight;
+        var p=max>0 ? ((el.scrollTop||document.body.scrollTop)/max)*100 : 0;
+        bar.style.width=p+'%';
+      }
+      window.addEventListener('scroll', onScroll, {passive:true});
+      onScroll();
+    })();
+    // mobile toggle — collapses to drawer-like
+    (function(){
+      var t=document.getElementById('gxMobileToggle');
+      var l=document.getElementById('gxNavLinks');
+      if(!t||!l) return;
+      var open=false;
+      function apply(){
+        if(window.innerWidth>760){ l.style.display=''; return; }
+        l.style.display=open ? 'flex' : 'none';
+        if(open){ l.style.flexDirection='column'; l.style.position='absolute'; l.style.top='56px'; l.style.right='1rem'; l.style.background='rgba(8,8,10,.92)'; l.style.border='1px solid rgba(255,255,255,.12)'; l.style.borderRadius='16px'; l.style.padding='.7rem'; l.style.backdropFilter='blur(16px)'; }
+      }
+      t.addEventListener('click', function(e){ e.stopPropagation(); open=!open; apply(); });
+      window.addEventListener('resize', apply);
+      document.addEventListener('click', function(e){ if(open && !l.contains(e.target) && e.target!==t){ open=false; apply(); }});
+      apply();
+    })();
+    // reveal on scroll — fade + scale
+    (function(){
+      var els=[].slice.call(document.querySelectorAll('.reveal'));
+      if(!els.length) return;
+      if(!('IntersectionObserver' in window)){ els.forEach(function(e){e.classList.add('in')}); return; }
+      var io=new IntersectionObserver(function(entries){
+        entries.forEach(function(ent){ if(ent.isIntersecting){ ent.target.classList.add('in'); io.unobserve(ent.target); }});
+      }, {threshold:.12, rootMargin:'0px 0px -40px 0px'});
+      els.forEach(function(e){ io.observe(e); });
+    })();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

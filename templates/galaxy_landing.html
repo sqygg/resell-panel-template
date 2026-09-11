@@ -1,0 +1,113 @@
+{% extends "galaxy_base.html" %}
+{% block title %}Astro — Galaxy · The all in one reselling panel{% endblock %}
+{% block content %}
+
+<!-- HERO — massive visual focal point -->
+<section class="gx-hero">
+  <div class="gx-hero-glow" aria-hidden="true"></div>
+  <div class="gx-eyebrow reveal">Galaxy Edition · Dark Matter</div>
+  <h1 class="reveal delay1">The all in one<br><em>reselling panel.</em></h1>
+  <p class="sub reveal delay2">24/7 support · Automated webhook delivery · Best discounts. A cinematic, monochromatic workspace built for velocity — now with a galaxy core.</p>
+  <div class="gx-hero-cta reveal delay3">
+    <a href="/auth" class="btn-gx btn-gx-primary">Reseller Dashboard <span aria-hidden="true">→</span></a>
+    <a href="/apply" class="btn-gx btn-gx-ghost">Apply to Resell</a>
+  </div>
+</section>
+
+<!-- MASSIVE HERO VISUAL — black hole -->
+<div class="gx-visual-wrap reveal">
+  <div class="gx-visual" role="img" aria-label="Cinematic black hole with accretion disk — galaxy core visual">
+    <div class="gx-hole" aria-hidden="true">
+      <div class="gx-hole-glow"></div>
+      <div class="gx-hole-disk"></div>
+      <div class="gx-hole-lensing"></div>
+      <div class="gx-hole-core"></div>
+    </div>
+    <div class="gx-visual-caption">
+      <span style="display:flex;align-items:center;gap:.5rem"><span class="cap-dot"></span><span class="cap-k">Galaxy core</span><span class="cap-v">Live. Inky. Infinite.</span></span>
+      <span class="cap-k" style="opacity:.8">Black hole · Accretion disk · Starfield</span>
+    </div>
+  </div>
+</div>
+
+<div class="gx-divider" style="margin-top:2rem"><hr></div>
+
+<!-- BENTO GRID — Apple spacing, feature highlights -->
+<section class="gx-section">
+  <div class="gx-section-head reveal">
+    <div class="kicker">Built for resellers</div>
+    <h2>Everything you need.<br>Nothing you don't.</h2>
+    <p>Generous white space, tight typography, and a restrained palette — so your catalog stays the hero.</p>
+  </div>
+
+  <div class="gx-bento">
+    <!-- large + medium -->
+    <div class="gx-card span-7 reveal">
+      <div class="ic">◈</div>
+      <h3>API Delivery</h3>
+      <p>Resellers pull real keys and serials straight from your SellAuth stock via a signed API call. No CSVs, no delays — just delivery.</p>
+      <div class="meta"><span class="gx-pill">Signed</span><span class="gx-pill">Instant</span><span class="gx-pill">Audited</span></div>
+    </div>
+    <div class="gx-card span-5 reveal delay1">
+      <div class="ic">％</div>
+      <h3>Per-Reseller Discounts</h3>
+      <p>Custom discount % per reseller — applied automatically on every order without touching your store.</p>
+      <div class="meta"><span class="gx-pill">Per account</span><span class="gx-pill">Auto-applied</span></div>
+    </div>
+
+    <div class="gx-card span-5 reveal">
+      <div class="ic">◎</div>
+      <h3>Live Stock Sync</h3>
+      <p>Products and stock mirror your SellAuth store in real time. What you list is what resellers see.</p>
+    </div>
+    <div class="gx-card span-7 reveal delay1">
+      <div class="ic">✦</div>
+      <h3>Referrals & Growth</h3>
+      <p>Built-in referral codes and commission tracking. Resellers bring resellers — you keep the flywheel.</p>
+      <div class="meta"><span class="gx-pill">Codes</span><span class="gx-pill">Commissions</span><span class="gx-pill">Payouts</span></div>
+    </div>
+
+    <!-- three equal -->
+    <div class="gx-card span-4 reveal">
+      <div class="ic">⬢</div>
+      <h3>Webhook Automation</h3>
+      <p>Order events fan out via webhooks — Discord, sheets, or your own infra. Reliable, retry-aware.</p>
+    </div>
+    <div class="gx-card span-4 reveal delay1">
+      <div class="ic">⬣</div>
+      <h3>Cinematic Lighting</h3>
+      <p>Delicate glassmorphism and soft glows frame content without competing with it. Dark by design.</p>
+    </div>
+    <div class="gx-card span-4 reveal delay2">
+      <div class="ic">⬔</div>
+      <h3>Scroll Clarity</h3>
+      <p>Subtle fade + scale reveals guide the eye. Motion only where it sharpens focus.</p>
+    </div>
+  </div>
+</section>
+
+<!-- Cool gray band — stats -->
+<div class="gx-band">
+  <section class="gx-section" style="padding:2.2rem 1.5rem">
+    <div class="gx-stats reveal">
+      <div class="gx-stat"><div class="num">24/7</div><div class="lbl">Support</div></div>
+      <div class="gx-stat"><div class="num">~40ms</div><div class="lbl">Median delivery</div></div>
+      <div class="gx-stat"><div class="num">∞</div><div class="lbl">Scale</div></div>
+    </div>
+  </section>
+</div>
+
+<!-- Glass CTA -->
+<section class="gx-section">
+  <div class="gx-cta reveal">
+    <h3>Ready to orbit?</h3>
+    <p>Join resellers running on Astro. Apply in seconds — start selling in minutes.</p>
+    <div style="display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap">
+      <a href="/apply" class="btn-gx btn-gx-primary">Apply to Resell</a>
+      <a href="/" class="btn-gx btn-gx-ghost">View Void theme</a>
+    </div>
+    <p style="margin-top:1rem;font-size:.78rem;color:var(--gx-text-faint)">Void theme stays default — Galaxy lives at <code style="background:rgba(255,255,255,.06);padding:.2rem .4rem;border-radius:6px">/galaxy</code></p>
+  </div>
+</section>
+
+{% endblock %}
