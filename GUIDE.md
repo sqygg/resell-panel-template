@@ -197,8 +197,31 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 # open http://localhost:8000
 ```
 
-SQLite database (`resellers.db`) is created automatically on first start. For
-production-scale MySQL instead, set `MYSQL_HOST/PORT/USER/PASSWORD/DATABASE`.
+SQLite database (`resellers.db`) is created automatically on first start.
+
+### Optional: use MySQL instead of SQLite (data survives every redeploy)
+
+By default Railway's SQLite file is wiped on each redeploy unless you add a
+volume. The simplest fix that needs no Railway volume: a free external MySQL
+(e.g. freesqldatabase.com, or any MariaDB/MySQL host). Set ALL four variables
+in Railway → Variables and the panel switches to MySQL automatically on next
+deploy — it creates its own tables on first start (idempotent, safe):
+
+```
+MYSQL_HOST=sql.freesqldatabase.com      # host from your DB provider
+MYSQL_PORT=3306                          # default; provider may differ
+MYSQL_USER=your_db_username
+MYSQL_PASSWORD=your_db_password
+MYSQL_DATABASE=your_database_name
+```
+
+- Tables (`resellers`, `orders`, `balance_transactions`, `audit_log`, …) are
+  created automatically on first boot — no SQL to run by hand.
+- Set these variables BEFORE creating real resellers, or existing SQLite data
+  won't carry over (it's a fresh database — re-create resellers and re-issue
+  their keys, or copy rows manually).
+- `SESSION_SECRET` still governs API-key encryption: keep it unchanged forever.
+- Verified working: the panel runs its full schema + CRUD on MariaDB 11.4.
 
 Docker: `docker compose up --build` (uses the included `Dockerfile`).
 
