@@ -124,7 +124,7 @@ tbody tr:hover { background: rgba(255,255,255,.03); }
 .legend .dot.y { background: #eab308; }
 .legend .dot.r { background: #ef4444; }
 
-/* Auth card (exodus-style) */
+/* Auth card */
 .auth-wrap {
   min-height: calc(100vh - 64px);
   display: flex; align-items: center; justify-content: center;
