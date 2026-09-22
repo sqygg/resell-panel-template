@@ -10,7 +10,6 @@ import database as db
 from security import get_client_ip
 from services.sellauth import client as sellauth
 from config import settings, DEPLOY_VERSION
-import services.mailer as mailer
 from services.crypto_notify import notify_new_application
 
 router = APIRouter(tags=["store"])
@@ -64,52 +63,18 @@ def auth_page(request: Request, error: str = "", email: str = ""):
 
 
 @router.post("/auth")
-def auth_action(request: Request, email: str = Form(...)):
-    """Email-OTP step 1: look up the reseller by email, mint a 6-digit code,
-    store it hashed with a 10-min TTL, and email it. Existence is not revealed:
-    an unknown email gets the same generic 'check your inbox' response."""
-    email = (email or "").strip().lower()
-    import re
-    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
-        return templates.TemplateResponse("auth.html", _brand_ctx(
-            request=request, error="Enter a valid email address.", email=email))
-    r = db.get_reseller_by_email(email)
+def auth_action(request: Request, api_key: str = Form(...)):
+    """API-key login (friend edition — no email/OTP). The reseller pastes the
+    API key the owner issued (shown once at creation / via admin Reveal).
+    Verified by SHA-256 hash lookup, same path the delivery API uses."""
+    api_key = (api_key or "").strip()
     ip = get_client_ip(request)
-    if r:
-        rid = r["id"]
-        # Rate-limit: one code per 60s per reseller.
-        if not db.can_request_email_2fa(rid, cooldown_seconds=60):
-            return templates.TemplateResponse("auth.html", _brand_ctx(
-                request=request, error="A code was just sent. Wait 60s before requesting another.",
-                email=email, stage="verify"))
-        code = f"{_secrets.randbelow(1000000):06d}"
-        db.set_email_2fa(rid, code, ttl_seconds=600)
-        sent = mailer.send_2fa_code(email, code)
-        db._audit("reseller_login_code_sent", rid, f"sent={sent}", ip)
-        if not sent:
-            return templates.TemplateResponse("auth.html", _brand_ctx(
-                request=request,
-                error="Could not send the verification code (SMTP not configured). Contact the store owner.",
-                email=email))
-    # Always show the verify stage; never disclose whether the email exists.
-    return templates.TemplateResponse("auth.html", _brand_ctx(
-        request=request, stage="verify", email=email))
-
-
-@router.post("/auth/verify")
-def auth_verify(request: Request, email: str = Form(...), code: str = Form(...)):
-    """Email-OTP step 2: verify the code, then issue the session cookie."""
-    email = (email or "").strip().lower()
-    code = (code or "").strip()
-    r = db.get_reseller_by_email(email)
-    ip = get_client_ip(request)
-    if not r or not db.verify_email_2fa(r["id"], code):
-        db._audit("reseller_login_failed", r["id"] if r else None, "bad_code", ip)
+    r = db.get_reseller_by_key(api_key) if api_key else None
+    if not r:
+        db.log_login_attempt(ip, success=False)
         return templates.TemplateResponse("auth.html", _brand_ctx(
-            request=request, stage="verify", email=email,
-            error="Invalid or expired code. Request a new one."))
-    db.clear_email_2fa(r["id"])
-    db._audit("reseller_login_ok", r["id"], "", ip)
+            request=request, error="Invalid API key. Ask the store owner for your key."))
+    db._audit("reseller_login_ok", r["id"], "api_key", ip)
     sid = uuid.uuid4().hex
     _store_sessions[sid] = {
         "id": r["id"],
@@ -122,21 +87,6 @@ def auth_verify(request: Request, email: str = Form(...), code: str = Form(...))
     resp = RedirectResponse(url="/reseller", status_code=303)
     resp.set_cookie("store_session", sid, httponly=True, samesite="strict", max_age=86400)
     return resp
-
-
-@router.post("/auth/resend")
-def auth_resend(request: Request, email: str = Form(...)):
-    """Re-issue a code for the verify stage (respects the 60s cooldown)."""
-    email = (email or "").strip().lower()
-    r = db.get_reseller_by_email(email)
-    ip = get_client_ip(request)
-    if r and db.can_request_email_2fa(r["id"], cooldown_seconds=60):
-        code = f"{_secrets.randbelow(1000000):06d}"
-        db.set_email_2fa(r["id"], code, ttl_seconds=600)
-        mailer.send_2fa_code(email, code)
-        db._audit("reseller_login_code_sent", r["id"], "resent", ip)
-    return templates.TemplateResponse("auth.html", _brand_ctx(
-        request=request, stage="verify", email=email, resent="1"))
 
 
 @router.get("/logout")
@@ -406,58 +356,15 @@ def reseller_api_regen(request: Request):
 
 @router.post("/reseller/api/link-sellauth")
 def reseller_link_sellauth(request: Request, email: str = Form("")):
+    """Direct SellAuth link (friend edition — no email verification code).
+    Saves the customer email immediately; balance then mirrors from SellAuth."""
     r = require_reseller(request)
     email = (email or "").strip().lower()
     import re
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", email):
         return HTMLResponse("<script>alert('Enter a valid email address.');window.location='/reseller/api';</script>")
-    # Generate a SellAuth-style 6-digit 2FA code, store hashed, email it.
-    code = f"{_secrets.randbelow(1000000):06d}"  # 000000-999999
-    db.set_email_2fa(r["id"], code, ttl_seconds=600)
-    from services.mailer import send_2fa_code
-    sent = send_2fa_code(email, code)
-    ip = get_client_ip(request)
-    db._audit("reseller_email_2fa_sent", r["id"], f"email={email} sent={sent}", ip)
-    if not sent:
-        return HTMLResponse("<script>alert('Could not send the verification code (SMTP not configured). Contact the store owner.');window.location='/reseller/api';</script>")
-    # Stash the pending email in session so step 2 knows the target.
-    sid = request.cookies.get("store_session", "")
-    if sid in _store_sessions:
-        _store_sessions[sid]["pending_email"] = email
-    return RedirectResponse(url="/reseller/api?code=1", status_code=303)
-
-
-@router.post("/reseller/api/link-sellauth/verify")
-def reseller_link_sellauth_verify(request: Request, code: str = Form("")):
-    r = require_reseller(request)
-    code = (code or "").strip()
-    if not db.verify_email_2fa(r["id"], code):
-        return HTMLResponse("<script>alert('Invalid or expired code. Request a new one.');window.location='/reseller/api?code=1';</script>")
-    sid = request.cookies.get("store_session", "")
-    pending = _store_sessions.get(sid, {}).get("pending_email", "")
-    if not pending:
-        return HTMLResponse("<script>alert('Session expired. Start over.');window.location='/reseller/api';</script>")
-    db.set_sellauth_email(r["id"], pending, ip=get_client_ip(request))
-    db.clear_email_2fa(r["id"])
-    if sid in _store_sessions:
-        _store_sessions[sid].pop("pending_email", None)
+    db.set_sellauth_email(r["id"], email, ip=get_client_ip(request))
     return RedirectResponse(url="/reseller/api?linked=1", status_code=303)
-
-
-@router.post("/reseller/api/link-sellauth/resend")
-def reseller_link_sellauth_resend(request: Request):
-    r = require_reseller(request)
-    sid = request.cookies.get("store_session", "")
-    pending = _store_sessions.get(sid, {}).get("pending_email", "")
-    if not pending:
-        return HTMLResponse("<script>alert('No pending link. Enter your email again.');window.location='/reseller/api';</script>")
-    code = f"{_secrets.randbelow(1000000):06d}"
-    db.set_email_2fa(r["id"], code, ttl_seconds=600)
-    from services.mailer import send_2fa_code
-    sent = send_2fa_code(pending, code)
-    if not sent:
-        return HTMLResponse("<script>alert('Could not resend (SMTP not configured).');window.location='/reseller/api?code=1';</script>")
-    return RedirectResponse(url="/reseller/api?code=1&resent=1", status_code=303)
 
 
 # ---------- Reseller Discord account linking (OAuth) ----------

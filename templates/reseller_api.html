@@ -10,8 +10,8 @@
 
     <div class="card" style="padding:1.5rem;">
       <div class="page-head">
-        <div><h4>API Key</h4><p class="muted">Use this key to authenticate API orders. Sign in with your email + 2FA code — no password needed.</p>
-        <p class="muted" style="margin-top:0.4rem;font-size:0.8rem;color:var(--green);">If regenerated, please update your Webhook URLs.</p></div>
+        <div><h4>API Key</h4><p class="muted">Your login key and API credential. Sign in with it on the login page.</p>
+        <p class="muted" style="margin-top:0.4rem;font-size:0.8rem;color:var(--green);">If regenerated, please update your Webhook URLs and use the new key to sign in.</p></div>
       </div>
       {% if api_key_mask %}
         <code id="akey" class="secret" style="display:block;padding:0.75rem;border:1px solid var(--border);border-radius:0.5rem;margin:0.5rem 0;font-size:0.85rem;">{{ api_key_mask }}</code>
@@ -35,34 +35,18 @@
           <span class="badge badge-inactive">○ Not linked</span>
         {% endif %}
       </div>
-      {% if code == '1' %}
-        {# Step 2: enter the 6-digit code emailed to the address you submitted #}
-        <p class="muted" style="font-size:0.85rem;">A 6-digit verification code was emailed to you. Enter it below to confirm the link.</p>
-        <form action="/reseller/api/link-sellauth/verify" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-          <input name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" required autocomplete="one-time-code"
-                 placeholder="123456" style="flex:1;min-width:140px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:1rem;letter-spacing:0.25em;text-align:center;">
-          <button class="btn btn-primary btn-sm" type="submit">Verify</button>
-        </form>
-        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">Code expires in 10 minutes.
-          <form action="/reseller/api/link-sellauth/resend" method="post" style="display:inline;">
-            <button class="btn btn-ghost btn-sm" type="submit">Resend code</button>
-          </form>
-        </p>
-        {% if resent == '1' %}<p class="dim" style="font-size:0.8rem;color:var(--green);">A new code was sent.</p>{% endif %}
+      {% if sellauth_email %}
+        <p class="muted" style="font-size:0.85rem;">Linked email: <code>{{ sellauth_email }}</code></p>
+        <p style="font-size:1.5rem;font-weight:700;color:var(--green);">${{ "%.2f"|format(balance) }} {% if balance_source == 'cache' %}<span class="dim" style="font-size:0.8rem;">(cached)</span>{% endif %}</p>
+        <form action="/reseller/api/sync" method="post" style="margin-top:0.75rem;"><button class="btn btn-ghost btn-sm">Sync now</button></form>
+        <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">To change the linked account, enter the new email below and save.</p>
       {% else %}
-        {% if sellauth_email %}
-          <p class="muted" style="font-size:0.85rem;">Linked email: <code>{{ sellauth_email }}</code></p>
-          <p style="font-size:1.5rem;font-weight:700;color:var(--green);">${{ "%.2f"|format(balance) }} {% if balance_source == 'cache' %}<span class="dim" style="font-size:0.8rem;">(cached)</span>{% endif %}</p>
-          <form action="/reseller/api/sync" method="post" style="margin-top:0.75rem;"><button class="btn btn-ghost btn-sm">Sync now</button></form>
-          <p class="muted" style="margin-top:0.75rem;font-size:0.8rem;">To change the linked account, enter the new email — you'll need to verify it with a 2FA code.</p>
-        {% else %}
-          <p class="dim" style="font-size:0.85rem;">Your account is not linked to SellAuth yet. Enter the customer email you use on the store to connect.</p>
-        {% endif %}
-        <form action="/reseller/api/link-sellauth" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
-          <input name="email" type="email" required value="{% if sellauth_email %}{{ sellauth_email }}{% endif %}" placeholder="you@store.com" style="flex:1;min-width:180px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
-          <button class="btn btn-primary btn-sm" type="submit">Send code</button>
-        </form>
+        <p class="dim" style="font-size:0.85rem;">Your account is not linked to SellAuth yet. Enter the customer email you use on the store to connect.</p>
       {% endif %}
+      <form action="/reseller/api/link-sellauth" method="post" style="margin-top:0.75rem;display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+        <input name="email" type="email" required value="{% if sellauth_email %}{{ sellauth_email }}{% endif %}" placeholder="you@store.com" style="flex:1;min-width:180px;padding:0.55rem;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;">
+        <button class="btn btn-primary btn-sm" type="submit">Link account</button>
+      </form>
     </div>
 
     <div class="card" style="padding:1.5rem;margin-top:1.25rem;">
@@ -90,7 +74,7 @@
       {% if token_set == '1' %}<p class="dim" style="font-size:0.8rem;color:var(--green);">Reseller token saved.</p>{% endif %}
     </div>
       <div class="page-head">
-        <div><h4>Discord Account</h4><p class="muted">Link Discord to receive a 2FA code and delivery alerts by DM.</p></div>
+        <div><h4>Discord Account</h4><p class="muted">Link Discord to receive delivery alerts by DM.</p></div>
         <a href="/reseller/discord" class="btn btn-ghost btn-sm">Manage →</a>
       </div>
       <p class="dim" style="font-size:0.85rem;">Verified via Discord OAuth — only you can link your own account.</p>
