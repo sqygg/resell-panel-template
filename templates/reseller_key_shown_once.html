@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ heading }} · API Key{% endblock %}
+{% block content %}
+<div class="container" style="max-width:640px;">
+    <div class="card" style="padding:2rem;margin-top:2rem;">
+        <h1 style="margin-top:0;">{{ heading }}</h1>
+        <p class="muted">API key for <strong>{{ reseller_name | e }}</strong>. It is shown <strong>only on this page</strong> — copy it now.</p>
+        <code id="created-key-val" style="display:block;padding:1rem;border:1px solid var(--border-strong);border-radius:0.5rem;font-size:0.95rem;word-break:break-all;user-select:all;margin:1rem 0;">{{ api_key | e }}</code>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center;">
+            <button type="button" class="btn btn-primary copy-btn" data-copy-target="created-key-val"><span class="lbl">Copy key</span><span class="tick">✓</span></button>
+            <span class="dim" style="font-size:0.8rem;" id="copyStatus"></span>
+        </div>
+        <p class="muted" style="font-size:0.8rem;margin-top:1.25rem;">
+            The reseller uses this key to sign in at <code>/auth</code> and in their delivery URLs
+            (<code>/api/deliver/…</code>). If you lose it before saving, use <strong>Regen</strong> on the
+            Resellers page — the old key stops working immediately.
+        </p>
+        <a href="{{ back_url }}" class="btn btn-ghost btn-sm" style="margin-top:0.5rem;">← Back to Resellers</a>
+    </div>
+</div>
+{% endblock %}
