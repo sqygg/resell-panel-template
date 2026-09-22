@@ -1,4 +1,4 @@
-"""Astro Reseller Panel — storefront: /auth, /apply, /reseller (dashboard + catalog + orders + balance + referrals)."""
+"""SkriptX Reseller Panel — storefront: /auth, /apply, /reseller (dashboard + catalog + orders + balance + referrals)."""
 import os
 import uuid
 import time
@@ -29,7 +29,7 @@ def _sweep_store_sessions():
 
 def _brand_ctx(**extra) -> dict:
     ctx = {
-        "brand_name": "ASTRO",
+        "brand_name": "SKRIPTX",
         "brand_tagline": "Your reliable partner in gaming solutions.",
         "public_url": settings.PUBLIC_URL,
         "deploy_sha": os.getenv("RAILWAY_GIT_COMMIT_SHA", ""),

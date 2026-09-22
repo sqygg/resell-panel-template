@@ -1,13 +1,13 @@
 {% extends "base.html" %}
-{% block title %}Sign in · Astro Panel{% endblock %}
+{% block title %}Sign in · SkriptX Panel{% endblock %}
 {% block content %}
 <div class="auth-wrap">
   <div class="auth-top">
-    <a href="/" class="brand-btn" aria-label="Home"><img src="/static/logo.png" alt="Astro" class="brand-logo"></a>
+    <a href="/" class="brand-btn" aria-label="Home"><img src="/static/logo.png" alt="SkriptX" class="brand-logo"></a>
   </div>
   <div class="auth-card">
-    <div class="logo"><img src="/static/logo.png" alt="Astro" class="brand-logo" style="width:48px;height:48px;"></div>
-    <h1>Welcome to ASTRO</h1>
+    <div class="logo"><img src="/static/logo.png" alt="SkriptX" class="brand-logo" style="width:48px;height:48px;"></div>
+    <h1>Welcome to SkriptX</h1>
     <p class="sub">Sign in with the API key the store owner issued you</p>
     {% if error %}<div class="alert alert-err">{{ error }}</div>{% endif %}
     <form method="post" action="/auth">
