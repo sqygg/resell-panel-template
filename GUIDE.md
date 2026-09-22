@@ -1,4 +1,4 @@
-# Astro Reseller Panel — Complete Setup Guide (Friend Edition)
+# SkriptX Reseller Panel — Complete Setup Guide (Friend Edition)
 
 This edition has **no email login and no email codes**. Resellers sign in with the
 **API key the store owner gives them**, and link their SellAuth customer email
