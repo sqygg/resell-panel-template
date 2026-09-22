@@ -113,7 +113,7 @@
 function revealKey(id, btn) {
     btn.disabled = true;
     btn.textContent = '…';
-    fetch('/api/admin/key/' + id, {credentials: 'same-origin'})
+    fetch('/resellers/' + id + '/key', {credentials: 'same-origin'})
         .then(r => r.ok ? r.json() : Promise.reject())
         .then(d => {
             document.getElementById('key-val-' + id).textContent = d.api_key;

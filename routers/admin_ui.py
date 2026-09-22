@@ -181,9 +181,14 @@ def reseller_create(
     except ValueError as e:
         return HTMLResponse(f"<script>alert('{str(e)}');window.location='/resellers';</script>", status_code=400)
 
-    # Show the API key once via flash in the redirect
-    key_html = f"<script>alert('Reseller created!\\n\\nAPI Key (copy now — never shown again):\\n{result['api_key']}');window.location='/resellers';</script>"
-    return HTMLResponse(key_html)
+    # Show the API key once on a dedicated page (copy button, never in a URL/alert)
+    return templates.TemplateResponse("reseller_key_shown_once.html", {
+        "request": request,
+        "api_key": result["api_key"],
+        "reseller_name": result.get("name", ""),
+        "heading": "Reseller created",
+        "back_url": "/resellers",
+    })
 
 
 @router.post("/resellers/create-test")
@@ -262,8 +267,14 @@ def reseller_regenerate(request: Request, reseller_id: int):
     result = db.regenerate_api_key(reseller_id, ip=ip)
     if not result:
         return RedirectResponse(url="/resellers", status_code=303)
-    key_html = f"<script>alert('New API Key (copy now — never shown again):\\n{result['api_key']}');window.location='/resellers';</script>"
-    return HTMLResponse(key_html)
+    # New key shown once on a dedicated page (copy button, never in a URL/alert)
+    return templates.TemplateResponse("reseller_key_shown_once.html", {
+        "request": request,
+        "api_key": result["api_key"],
+        "reseller_name": result.get("name", ""),
+        "heading": "API key regenerated",
+        "back_url": "/resellers",
+    })
 
 
 # ---------- Stock ----------
@@ -417,6 +428,18 @@ def admin_pricing_delete(request: Request,
 
 
 # ---------- API key retrieval (post-creation) ----------
-# NOTE: removed GET /api/admin/key/{reseller_id} — it returned a reseller's raw
-# decrypted API key on a Bearer password, an unnecessary key-exposure surface.
-# The UI reveal (resellers.html) is sufficient and gated by admin session cookie.
+# NOTE: the old GET /api/admin/key/{reseller_id} (raw key on a Bearer password)
+# is gone. This replacement serves the same purpose but is gated by the ADMIN
+# SESSION COOKIE (check_ui_auth), like every other admin action, and is
+# audit-logged. The UI (resellers.html) fetches it on explicit Reveal clicks.
+
+
+@router.get("/resellers/{reseller_id}/key")
+def reseller_reveal_key(request: Request, reseller_id: int):
+    if not check_ui_auth(request):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    key = db.reveal_api_key(reseller_id)
+    if not key:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    db._audit("reseller_key_revealed", reseller_id, "admin_ui", get_client_ip(request))
+    return JSONResponse({"api_key": key})
