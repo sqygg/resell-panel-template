@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Astro Panel{% endblock %}</title>
+  <title>{% block title %}SkriptX Panel{% endblock %}</title>
   <link rel="stylesheet" href="/static/void.css">
   <style>
     .navbar { justify-content: flex-start; }
@@ -95,18 +95,18 @@
         <span></span><span></span><span></span>
       </button>
       <button class="brand-btn" id="brandToggle" type="button" aria-haspopup="true" aria-expanded="false" aria-label="Open menu">
-        <img src="/static/logo.png" alt="Astro" class="brand-logo">
+        <img src="/static/logo.png" alt="SkriptX" class="brand-logo">
       </button>
-      <span class="brand-text">ASTRO</span>
+      <span class="brand-text">SKRIPTX</span>
     </div>
   </nav>
 
   <div class="drawer-backdrop" id="drawerBackdrop"></div>
   <aside class="drawer" id="drawer" aria-label="Menu">
     <div class="menu-header">
-      <img src="/static/logo.png" alt="Astro">
+      <img src="/static/logo.png" alt="SkriptX">
       <div>
-        <div class="m-name">Astro Panel</div>
+        <div class="m-name">SkriptX Panel</div>
         <div class="m-sub">{% if reseller_logged_in %}Reseller account{% elif admin_authed %}Owner account{% else %}Public{% endif %}</div>
       </div>
     </div>
@@ -153,8 +153,8 @@
   {% block content %}{% endblock %}
 
   <footer>
-    <p>ASTRO — Your reliable partner in gaming solutions.</p>
-    <p>© 2026 Astro. All rights reserved.{% if deploy_version %} <span class="dim">· build {{ deploy_version }}</span>{% endif %} · <a href="/privacy" style="color:var(--text-dim);text-decoration:underline;">Privacy</a> · <a href="/faq" style="color:var(--text-dim);text-decoration:underline;">FAQ</a></p>
+    <p>SKRIPTX — Your reliable partner in gaming solutions.</p>
+    <p>© 2026 SkriptX. All rights reserved.{% if deploy_version %} <span class="dim">· build {{ deploy_version }}</span>{% endif %} · <a href="/privacy" style="color:var(--text-dim);text-decoration:underline;">Privacy</a> · <a href="/faq" style="color:var(--text-dim);text-decoration:underline;">FAQ</a></p>
   </footer>
 
   <script>
