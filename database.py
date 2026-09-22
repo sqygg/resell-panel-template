@@ -83,7 +83,13 @@ def get_db():
             def close(self):
                 self._real.close()
         return _MySQLConn(conn)
-    conn = sqlite3.connect("resellers.db")
+    # DB path: DATA_DIR (Railway volume mount point) if set, else CWD.
+    import os as _os
+    _db_dir = _os.getenv("DATA_DIR", "")
+    _db_path = _os.path.join(_db_dir, "resellers.db") if _db_dir else "resellers.db"
+    if _db_dir and not _os.path.isdir(_db_dir):
+        _os.makedirs(_db_dir, exist_ok=True)
+    conn = sqlite3.connect(_db_path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA foreign_keys=ON")
